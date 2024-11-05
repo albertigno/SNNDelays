@@ -3,6 +3,7 @@ import os
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torch.cuda.amp as amp
 import sys
 import json
 import math 
@@ -122,7 +123,10 @@ class Training:
             padding_im = torch.zeros((self.batch_size - len(images),) + images.shape[1:])
             images = torch.cat([images, padding_im], dim=0)
 
-        images = images.view(self.batch_size, self.win, -1).float().to(self.device)
+        if self.use_amp:
+            images = images.view(self.batch_size, self.win, -1).half().to(self.device)
+        else:
+            images = images.view(self.batch_size, self.win, -1).float().to(self.device)
 
         # Squeeze to eliminate dimensions of size 1    
         if len(images.shape)>3:    
@@ -159,8 +163,8 @@ class Training:
 
 
     # TODO: Documentacion
-    def train_step(self, train_loader=None, optimizer=None, spk_reg=0.0,
-                   l1_reg=0.0, dropout=0.0, verbose=True):
+    def train_step(self, train_loader=None, optimizer=None, scheduler= None, 
+                   spk_reg=0.0, l1_reg=0.0, dropout=0.0, verbose=True):
         """
         Function for the training of one epoch (over the whole dataset)
 
@@ -179,9 +183,6 @@ class Training:
         running_loss = 0
         total = 0
 
-        # Setting dropout
-        dropout = torch.nn.Dropout(p=dropout, inplace=False)
-
         # Setting simulation parameters
         num_iter = self.num_train_samples // self.batch_size
         #sr = spk_reg / self.win
@@ -193,35 +194,43 @@ class Training:
             self.zero_grad()
             optimizer.zero_grad()
 
-            # # Dropout
-            images = dropout(images.float())
+            # # Dropout [REVIEW]
+            # images = self.dropout(images.float())
 
-            # Propagate data
-            outputs, reference = self.propagate(images, labels)
+            with amp.autocast(enabled=self.use_amp):
 
-            #total spike count (for spike regularization)
-            spk_count = self.h_sum_spike / (self.batch_size * sum(self.num_neurons_list) * self.win)
-            
-            #  For L1 loss
-            l1_score = 0
-            if l1_reg != 0.0:
-                p = self.base_params[1:] if self.delay_type=='ho' else self.base_params
-                for weights in p:
-                    weights_sum = torch.sum(torch.abs(weights)) / (weights.shape[0] * weights.shape[1])
-                    l1_score = l1_score + weights_sum
-            
-            #Update simulation values to track
-            loss = self.criterion(outputs[:labels.size(0)], reference[:labels.size(0)]) + \
-                   spk_reg * spk_count + l1_reg*l1_score
+                # Propagate data
+                outputs, reference = self.propagate(images, labels)
 
-            running_loss += loss.detach().item()
-            total_loss_train += loss.detach().item()
-            total += labels.size(0)
+                #total spike count (for spike regularization)
+                spk_count = self.h_sum_spike / (self.batch_size * sum(self.num_neurons_list) * self.win)
+                
+                #  For L1 loss
+                l1_score = 0
+                if l1_reg != 0.0:
+                    p = self.base_params[1:] if self.delay_type=='ho' else self.base_params
+                    for weights in p:
+                        weights_sum = torch.sum(torch.abs(weights)) / (weights.shape[0] * weights.shape[1])
+                        l1_score = l1_score + weights_sum
+                
+                #Update simulation values to track
+                loss = self.criterion(outputs[:labels.size(0)], reference[:labels.size(0)]) + \
+                    spk_reg * spk_count + l1_reg*l1_score
+
+                running_loss += loss.detach().item()
+                total_loss_train += loss.detach().item()
+                total += labels.size(0)
 
             # Calculate gradients and optimize to update weights
-            loss.backward()
-
-            optimizer.step()
+            if self.use_amp:
+                self.scaler.scale(loss).backward()
+                self.scaler.step(optimizer)
+                self.scaler.update()
+            else:
+                loss.backward()
+                optimizer.step()
+            #scheduler.step()
+            scheduler.step(self.epoch + i / num_iter)
 
             # Apply verbose
             # TODO: try with episodic learning and improve syntax
@@ -268,9 +277,6 @@ class Training:
         total_spk_count = 0
         total_spk_count_per_layer = np.zeros(self.num_layers)
 
-        # Setting dropout
-        dropout = torch.nn.Dropout(p=dropout, inplace=False)
-
         # Initialization to store predictions and references
         all_preds = list()
         all_refs = list()        
@@ -279,11 +285,14 @@ class Training:
         for i, (images, labels) in enumerate(test_loader):
             
             # # Dropout
-            images = dropout(images.float())
+            #images = self.dropout(images.float())
 
             # # Propagate data
             with torch.no_grad():
-                outputs, reference = self.propagate(images, labels)
+                with amp.autocast(enabled=self.use_amp):
+                    self.eval()
+                    outputs, reference = self.propagate(images, labels)
+                    self.train()
 
             # crop results to the labels size (for incomplete batch)
             if type(outputs) == list:
@@ -349,22 +358,22 @@ class Training:
 
         return all_refs, all_preds
 
-    def lr_scheduler(self, optimizer, lr_decay_epoch=1, lr_decay=0.98):
-        """
-        Function to decay learning rate by a factor of lr_decay every
-        lr_decay_epoch epochs
+    # def lr_scheduler(self, optimizer, lr_decay_epoch=1, lr_decay=0.98):
+    #     """
+    #     Function to decay learning rate by a factor of lr_decay every
+    #     lr_decay_epoch epochs
 
-        :param optimizer: Optimizer used during training
-        :param lr_decay_epoch: Number of epochs to update learning rate
-        (default = 1)
-        :param lr_decay: Factor to reduce learning rate (default = 0.98)
-        """
+    #     :param optimizer: Optimizer used during training
+    #     :param lr_decay_epoch: Number of epochs to update learning rate
+    #     (default = 1)
+    #     :param lr_decay: Factor to reduce learning rate (default = 0.98)
+    #     """
 
-        if self.epoch % lr_decay_epoch == 0 and self.epoch > 1:
-            for param_group in optimizer.param_groups:
-                param_group['lr'] = param_group['lr'] * lr_decay
+    #     if self.epoch % lr_decay_epoch == 0 and self.epoch > 1:
+    #         for param_group in optimizer.param_groups:
+    #             param_group['lr'] = param_group['lr'] * lr_decay
 
-        return optimizer
+    #     return optimizer
 
 class SNN(Training, nn.Module):
     """
@@ -377,7 +386,7 @@ class SNN(Training, nn.Module):
     def __init__(self, dataset_dict, structure=(256, 2),
                  connection_type='r', delay=None, delay_type='ho',
                  reset_to_zero=True, tau_m='normal', win=50,
-                 surr_scale=10.0, loss_fn='mem_sum',
+                 loss_fn='mem_sum',
                  batch_size=256, device='cuda', debug=False):
         """
         Implementation of an SNN with flexible structure and that can include
@@ -455,11 +464,18 @@ class SNN(Training, nn.Module):
         self.batch_size = batch_size
         self.device = device
         self.debug = debug
-        self.total_time = win  # For online learning
+
+        # Setting dropout
+        # self.dropout = torch.nn.Dropout(p=1.0)
+
+        self.total_time = win  # For online learning [REVIEW]
 
         # important parameters which are left fixed
         self.thresh = 0.3
         self.surr = 'fs'
+        self.surr_scale = torch.tensor([10.0], requires_grad=False,
+                                         device=self.device)
+
         # By default, inputs are binarized according to this threshold (see
         # training/propagate). Set this to None if you want to allow floating
         # inputs
@@ -479,10 +495,6 @@ class SNN(Training, nn.Module):
             "[ERROR] Reset_to_zero argument must take the value True or False."
         assert type(win) == int, \
             "[ERROR] Window must be an integer."
-
-        # fast-sigmoid scale
-        self.surr_scale = torch.tensor([surr_scale], requires_grad=False,
-                                         device=self.device)
 
         # Define the structure of the network
         if type(structure) == tuple:
@@ -511,6 +523,7 @@ class SNN(Training, nn.Module):
         self.criterion = None
         self.output_thresh = None
         self.optimizer = None
+        self.stored_grads = None
 
         # Set propagation attributes (attributes initialized as None)
         self.h_sum_spike = None
@@ -544,14 +557,16 @@ class SNN(Training, nn.Module):
 
         # Set features of the network
         self.define_metaparameters()
-        self.set_input_layer()
-        self.set_hidden_layers()
-        self.set_output_layer()
+        self.set_layers()
         self.set_tau_m()
         self.set_layer_lists()
-        self.set_optimizer()
         self.define_model_name()
         self.to(self.device)
+
+        # automatic mixed precision
+        #self.use_amp = False
+        self.use_amp = True # This only works in GPU
+        self.scaler = amp.GradScaler()        
 
     def define_metaparameters(self):
         """
@@ -624,8 +639,22 @@ class SNN(Training, nn.Module):
             "[ERROR] Output delays should always be together with hidden " \
             "delays"
 
+        self.delays_i = self.delays
+        self.delays_h = self.delays
+        self.delays_o = self.delays
+
+        if 'i' not in self.delay_type:
+            self.delays_i = torch.tensor([0])
+        if 'h' not in self.delay_type:
+            self.delays_h = torch.tensor([0])
+        if 'o' not in self.delay_type:
+            self.delays_o = torch.tensor([0])    
+
         # Print information about delays
         print('\n[INFO] Delays: ' + str(self.delays))
+        print('\n[INFO] Delays i: ' + str(self.delays_i))
+        print('\n[INFO] Delays h: ' + str(self.delays_h))
+        print('\n[INFO] Delays o: ' + str(self.delays_o))
 
         # Define hidden layer names
         self.layer_names = ['f' + str(x + 1) for x in range(self.num_layers)]
@@ -648,33 +677,22 @@ class SNN(Training, nn.Module):
                 self.num_layers,
                 self.delay[0],
                 self.delay[1])
-     
-    def set_input_layer(self):
+
+    def set_layers(self):
         """
-        Function to set input layer as Linear layer.
-        """
-
-        # Set input layer with names in input_names as attributes of the class
-        # using the Linear layer of torch module
-
-        num_first_layer = self.num_neurons_list[0]
-
-        if 'i' in self.delay_type:
-            setattr(self, 'f0_f1', nn.Linear(self.num_input*len(self.delays),
-                                        num_first_layer, bias=False))            
-        else:
-            setattr(self, 'f0_f1',
-                    nn.Linear(self.num_input, num_first_layer, bias=False))
-
-    def set_hidden_layers(self):
-        """
-        Function to set hidden and output layers as Linear layers. If the
+        Function to set input, hidden and output layers as Linear layers. If the
         propagation mode include recurrence (self.connection_type = 'r'),
-        additional layer (self.r_name) are created.
+        additional layers (self.r_name) are created.
         """
 
         # Set bias
         bias = False
+
+        num_first_layer = self.num_neurons_list[0]
+
+        # if delays is None, len(self.delays) = 1
+        setattr(self, 'f0_f1', nn.Linear(self.num_input*len(self.delays_i),
+                                    num_first_layer, bias=False))            
 
         # Set linear layers dynamically for the l hidden layers
         for lay_name_1, lay_name_2, num_pre, num_pos in zip(self.layer_names[:-1],
@@ -683,53 +701,28 @@ class SNN(Training, nn.Module):
             # This only if connection is recurrent
             if self.connection_type == 'r':
                 name = lay_name_1 + '_' + lay_name_1
-                if 'h' in self.delay_type:
-                    setattr(self, name, nn.Linear(
-                        num_pre* len(self.delays), num_pre, bias=bias))
-                else:
-                    setattr(self, name, nn.Linear(
-                        num_pre, num_pre, bias=bias))
+                setattr(self, name, nn.Linear(
+                    num_pre* len(self.delays_h), num_pre, bias=bias))
                 self.proj_names.append(name)
 
             # Normal layer
             name = lay_name_1 + '_' + lay_name_2
-            if 'h' in self.delay_type:
-                setattr(self, name, nn.Linear(num_pre * len(self.delays),
-                                            num_pos, bias=bias))             
-            else:
-                setattr(self, name, nn.Linear(num_pre, 
-                                            num_pos, bias=bias))   
+            setattr(self, name, nn.Linear(num_pre * len(self.delays_h),
+                                        num_pos, bias=bias))             
             self.proj_names.append(name)
 
         if self.connection_type == 'r':
             name = self.layer_names[-1] + '_' + self.layer_names[-1]
-            if 'h' in self.delay_type:
-                setattr(self, name, nn.Linear(
-                    self.num_neurons_list[-1]* len(self.delays), self.num_neurons_list[-1], bias=bias))                  
-            else:
-                setattr(self, name, nn.Linear(
-                    self.num_neurons_list[-1], self.num_neurons_list[-1], bias=bias))              
+            setattr(self, name, nn.Linear(
+                self.num_neurons_list[-1]* len(self.delays_h), self.num_neurons_list[-1], bias=bias))                              
             self.proj_names.append(name)
 
-    def set_output_layer(self):
-
-        """
-        Function to set output layer as Linear layer.
-        """
-
-        # Normal layer
+        # output layer
         name = self.layer_names[-1]+'_o'
-        if 'o' in self.delay_type:
-            setattr(self, name, nn.Linear(self.num_neurons_list[-1] * len(self.delays),
-                                        self.num_output, bias=False))
-        else:            
-            setattr(self, name, nn.Linear(self.num_neurons_list[-1],
-                                        self.num_output, bias=False))
+        setattr(self, name, nn.Linear(self.num_neurons_list[-1] * len(self.delays_o),
+                                    self.num_output, bias=False))
             
         self.proj_names.append(name)
-
-        # ## NEW: WTA
-        # self.wta = nn.Linear(self.num_output, self.num_output, bias=False)
 
     # TODO: Documentar y testar
     def set_tau_m(self):
@@ -823,21 +816,6 @@ class SNN(Training, nn.Module):
 
         self.tau_params_names = [
             name for name, _ in self.state_dict().items() if name[0] == 't']
-        
-
-    def set_optimizer(self):
-        
-        '''
-        NOTE: only set this if learning_rates (base and tau_m) are defined
-        '''
-
-        learning_rate = 1e-3
-        tau_m_lr_scale = 1.0
-
-        self.optimizer = torch.optim.Adam([
-            {'params': self.base_params},
-            {'params': self.tau_params, 'lr': learning_rate * tau_m_lr_scale}],
-            lr=learning_rate, eps=1e-5)
 
     def init_state(self, input):
         """
@@ -1045,6 +1023,8 @@ class SNN(Training, nn.Module):
             self.w_idx = 0
             self.tau_idx = 0
 
+            #self.dropout(prev_spikes)
+
             for i, layer in enumerate(self.layer_names):
 
                 # calculate recurrent extended spikes
@@ -1062,6 +1042,8 @@ class SNN(Training, nn.Module):
                     prev_spikes = extended_spikes[layer][:, step + self.delays, :].transpose(1, 2).clone()
                 else:
                     prev_spikes = spikes[layer]
+
+                #self.dropout(prev_spikes)
 
                 self.h_sum_spike = self.h_sum_spike + spikes[layer].sum()
 

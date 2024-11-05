@@ -1,7 +1,8 @@
 import numpy as np
 import torch
 import os
-#from snn_delays.utils.utils import calc_metrics
+#from snn_delays.utils.utils import calc_metricsç
+from snn_delays.utils.train_utils import get_gradients
 
 def tb_save_max_acc(snn, ckpt_dir, test_loader, dropout, test_every):
     '''
@@ -21,7 +22,8 @@ def tb_save_max_acc(snn, ckpt_dir, test_loader, dropout, test_every):
 def tb_save_max_last_acc(snn, ckpt_dir, test_loader, dropout, test_every):
     '''
     test every "check_every" and save results only for the nets with best accuracy.
-    Remove old acc, only keep the 'max' and the last 'acc'
+    Remove old acc, only keep the 'max' and the last 'acc'.
+    Save and plot gradients
     '''
 
     if (snn.epoch) % test_every == 0:
@@ -35,6 +37,12 @@ def tb_save_max_last_acc(snn, ckpt_dir, test_loader, dropout, test_every):
 
         snn.last_model_name = snn.model_name+'_'+ ''.join(str(np.array(snn.acc)[-1,1]).split('.')) + f'_last_{snn.epoch}epoch'
         snn.save_model(snn.last_model_name, ckpt_dir)
+
+        stored_grads = get_gradients(snn)
+
+        for name, grad in stored_grads.items():
+            grad_norm = grad.norm().item()
+            print(f"Gradient norm for '{name}': {grad_norm:.4f}")
 
         if last_acc == max_acc:
             if snn.last_max_model_name is not None:

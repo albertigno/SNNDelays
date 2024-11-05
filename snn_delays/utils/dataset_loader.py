@@ -157,13 +157,15 @@ class DatasetLoader:
         self.train_loader = DataLoader(train_dataset,
                                        batch_size=batch_size,
                                        shuffle=True,
-                                       drop_last=True,
+                                       drop_last=False,
+                                       pin_memory=True,
                                        num_workers=num_workers)
 
         self.test_loader = DataLoader(test_dataset,
                                       batch_size=batch_size,
                                       shuffle=True,
                                       drop_last=False,
+                                      pin_memory=True,
                                       num_workers=num_workers)
 
     def change_total_time(self, time):

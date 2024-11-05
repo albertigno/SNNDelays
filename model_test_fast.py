@@ -11,8 +11,8 @@ device = get_device()
 torch.manual_seed(10)
 
 dataset = 'shd'
-total_time = 250
-batch_size = 64
+total_time = 30
+batch_size = 1024  # lr=1e-4
 
 # DATASET
 DL = DatasetLoader(dataset=dataset,
@@ -25,11 +25,10 @@ train_loader, test_loader, dataset_dict = DL.get_dataloaders()
 # SNN CON DELAYS
 taimu1 = time.time()
 
-tau_m = 'normal'
-delay = (150, 6)
+tau_m = 3.0
 
 snn1 = SNN(dataset_dict=dataset_dict, structure=(48, 2), connection_type='f',
-          delay=delay, delay_type='ho', tau_m = tau_m,
+          delay=(10, 1), delay_type='ho', tau_m = tau_m,
           win=total_time, loss_fn='mem_sum', batch_size=batch_size, device=device,
           debug=True)
 
@@ -39,7 +38,7 @@ snn2 = SNN(dataset_dict=dataset_dict, structure=(48, 2), connection_type='f',
           debug=True)
 
 snn3 = SNN(dataset_dict=dataset_dict, structure=(48, 2), connection_type='r',
-          delay=delay, delay_type='ho', tau_m = tau_m,
+          delay=(10, 1), delay_type='ho', tau_m = tau_m,
           win=total_time, loss_fn='mem_sum', batch_size=batch_size, device=device,
           debug=True)
 
@@ -48,19 +47,19 @@ snn4 = SNN(dataset_dict=dataset_dict, structure=(48, 2), connection_type='r',
           win=total_time, loss_fn='mem_sum', batch_size=batch_size, device=device,
           debug=True)
 
-snn1.to(device)
-snn2.to(device)
-snn3.to(device)
-snn4.to(device)
+snn1.to(device) # 30 - 30
+snn2.to(device) # 11 - 24
+snn3.to(device) # 30 - 4
+snn4.to(device) # 10 - 35
 
 ckpt_dir = 'exp_default'  # donde se guardará
-train(snn1, train_loader, test_loader, 0.25*1e-3, 50, dropout=0.0, lr_scale=(5.0, 2.0), 
+train(snn1, train_loader, test_loader, 4*1e-3, 5, dropout=0.0, lr_scale=(5.0, 2.0), 
       test_behavior=tb_save_max_last_acc, ckpt_dir=ckpt_dir, scheduler=(10, 0.95), test_every=5)
-train(snn2, train_loader, test_loader, 1e-3, 50, dropout=0.0, lr_scale=(5.0, 2.0), 
+train(snn2, train_loader, test_loader, 4*1e-3, 5, dropout=0.0, lr_scale=(5.0, 2.0), 
       test_behavior=tb_save_max_last_acc, ckpt_dir=ckpt_dir, scheduler=(10, 0.95), test_every=5)
-train(snn3, train_loader, test_loader, 1e-3, 50, dropout=0.0, lr_scale=(5.0, 2.0), 
+train(snn3, train_loader, test_loader, 4*1e-3, 5, dropout=0.0, lr_scale=(5.0, 2.0), 
       test_behavior=tb_save_max_last_acc, ckpt_dir=ckpt_dir, scheduler=(10, 0.95), test_every=5)
-train(snn4, train_loader, test_loader, 1e-3, 50, dropout=0.0, lr_scale=(5.0, 2.0), 
+train(snn4, train_loader, test_loader, 4*1e-3, 5, dropout=0.0, lr_scale=(5.0, 2.0), 
       test_behavior=tb_save_max_last_acc, ckpt_dir=ckpt_dir, scheduler=(10, 0.95), test_every=5)
 
 print('[INFO] TIEMPO: ', time.time() - taimu1)
