@@ -12,8 +12,8 @@ device = get_device()
 # for reproducibility
 torch.manual_seed(10)
 
-for batch_size in [256, 512, 1024, 8, 16, 32, 64, 128, 2, 1]:
-
+#for batch_size in [256, 512, 1024, 8, 16, 32, 64, 128, 2, 1]:
+for batch_size in [2, 4, 8, 16, 32, 64, 128, 256, 512, 1024]:
       dataset = 'shd'
       total_time = 250
       #batch_size = 2
@@ -37,17 +37,17 @@ for batch_size in [256, 512, 1024, 8, 16, 32, 64, 128, 2, 1]:
 
       tau_m = 'normal'
       delay = (150,6)
-      ckpt_dir = 'exp_dymbatch5'  # donde se guardará
+      ckpt_dir = 'exp_multibatch_soa_test_every_epoch'  # donde se guardará
 
-      snn = SNN(dataset_dict=dataset_dict, structure=(32, 2), connection_type='r',
-            delay=None, delay_type='h', tau_m = tau_m,
+      snn = SNN(dataset_dict=dataset_dict, structure=(32, 2), connection_type='f',
+            delay=delay, delay_type='ho', tau_m = tau_m,
             win=total_time, loss_fn='mem_sum', batch_size=batch_size, device=device,
-            debug=True)
+            debug=False)
       
-      snn.model_name = snn.model_name + "_b" + str(batch_size)
+      snn.model_name = "b" + str(batch_size) + "_" + snn.model_name
 
       snn.to(device)
       train(snn, train_loader, test_loader, bs_factor*1e-3, num_epochs, dropout=0.0, lr_scale=(5.0, 2.0), 
-            test_behavior=tb_save_max_last_acc, ckpt_dir=ckpt_dir, scheduler=(10, 0.95), test_every=5)
+            test_behavior=tb_save_max_last_acc, ckpt_dir=ckpt_dir, scheduler=(10, 0.95), test_every=1)
 
       print(f'[INFO] TIEMPO: {time.time() - taimu1}', flush=True)
