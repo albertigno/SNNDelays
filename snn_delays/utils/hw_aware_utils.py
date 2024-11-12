@@ -32,6 +32,12 @@ def modify_weights(layer, value, mode='mask', trainable=True):
         print(f'Mask weights failed: dimension mismatch. make sure the '
               f'weights are shape {layer.weight.data.shape}')
 
+def scale_weights(layer, scale_factor):
+    value = scale_factor*layer.weight.data
+    layer.weight = torch.nn.Parameter(
+        value, requires_grad=True)    
+    #modify_weights(layer, value, 'replace')
+
 
 """
 HW_Aware_utils

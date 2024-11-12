@@ -603,10 +603,8 @@ class SNN(Training, nn.Module):
         # potential
         if self.tau_m == 'IF':
             self.alpha_fn = self.alpha_none             # no decay, IF neuron model
-        elif self.tau_m == 'normal':
-            self.alpha_fn = self.alpha_sigmoid
         else:
-            self.alpha_fn = self.alpha_exp
+            self.alpha_fn = self.alpha_sigmoid
 
         # Set reset
         if self.reset_to_zero:
@@ -734,37 +732,30 @@ class SNN(Training, nn.Module):
         they are also left to be volatile during training (trainable).
         """
 
+        logit = lambda x: np.log(x/(1-x))
+
+        mean_tau = 20.0 # mean tau 20ms (Perez-Nieves)
+
+        time_ms = self.dataset_dict.get('time_ms', 0)
+        print(time_ms)
+
+        if time_ms != 0:
+            delta_t = time_ms/self.win
+            print(f"Delta t: {delta_t} ms")
+        else:
+            delta_t = self.win ####### FIX!!!!!
+            print("[WARNING]: delta_t not defined")
+
         if type(self.tau_m) == float:
-            ## old way
-            # self.tau_m_h = [
-            #     nn.Parameter(torch.Tensor([self.tau_m]), requires_grad=True)
-            #     for i in range(self.num_layers + 1)]
-
             for i in range(self.num_layers):
                 name = 'tau_m_' + str(i + 1)
-                setattr(self, name, nn.Parameter(self.tau_m*torch.ones(self.num_neurons_list[i])))
-                setattr(self, 'tau_m_o', nn.Parameter(self.tau_m*torch.ones(self.num_output)))
-
-        elif self.tau_m == 'gamma':
-            rate = 10 / self.win  # rate 1->10
-            concentration = 2.0
-
-            mean = 0.0
-            std = 1.0
-            for i in range(self.num_layers):
-                name = 'tau_m_' + str(i + 1)
-                setattr(self, name, nn.Parameter(
-                torch.distributions.gamma.Gamma(
-                    torch.ones(self.num_neurons_list[i]) * concentration,
-                    torch.ones(self.num_neurons_list[i]) * rate).sample()))
-
-            setattr(self, 'tau_m_o', nn.Parameter(
-                torch.distributions.gamma.Gamma(
-                    torch.ones(self.num_output) * concentration,
-                    torch.ones(self.num_output) * rate).sample()))
+                x = logit(np.exp(-delta_t/self.tau_m))
+                setattr(self, name, nn.Parameter(x*torch.ones(self.num_neurons_list[i])))
+                setattr(self, 'tau_m_o', nn.Parameter(x*torch.ones(self.num_output)))
 
         elif self.tau_m == 'normal':
-            mean = 0.0
+            mean = logit(np.exp(-delta_t/mean_tau))
+            print(f"mean of normal: {mean}")
             std = 1.0
             for i in range(self.num_layers):
                 name = 'tau_m_' + str(i + 1)

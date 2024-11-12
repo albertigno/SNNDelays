@@ -6,7 +6,8 @@ from sklearn.metrics import f1_score
 from sklearn.metrics import precision_recall_fscore_support
 from snn_delays.utils.hw_aware_utils import pool_delays, quantize_weights, prune_weights, modify_weights
 from torch.optim.lr_scheduler import StepLR
-
+import torch.cuda.amp as amp
+import numpy as np
 import time
 
 def get_device():
@@ -18,7 +19,7 @@ def get_device():
     return device
 
 def train(snn, train_loader, test_loader, learning_rate, num_epochs, spk_reg=0.0, l1_reg=0.0,
-          dropout=0.0, lr_scale=(2.0, 5.0), scheduler=(1, 0.98), ckpt_dir='checkpoint',
+          dropout=0.0, lr_scale_tau=2.0, scheduler=(1, 0.98), ckpt_dir='checkpoint',
           test_behavior=None, test_every=5, delay_pruning = None, weight_pruning=None, lsm=False,
           random_delay_pruning = None, weight_quantization = None, k=None, depth= None, freeze_taus = None, 
           verbose=True):
@@ -35,12 +36,11 @@ def train(snn, train_loader, test_loader, learning_rate, num_epochs, spk_reg=0.0
 
     # print(tau_m_params)
     
-    tau_adp_params = [getattr(
-        snn, name.split('.')[0]) for name, _ in snn.state_dict().items()
-        if 'tau_adp' in name]
+    # tau_adp_params = [getattr(
+    #     snn, name.split('.')[0]) for name, _ in snn.state_dict().items()
+    #     if 'tau_adp' in name]
 
-    tau_m_lr_scale = lr_scale[0]
-    tau_adp_lr_scale = lr_scale[1]
+    tau_m_lr_scale = lr_scale_tau
 
     if lsm:
         # Freeze all parameters except the last layer
@@ -53,8 +53,7 @@ def train(snn, train_loader, test_loader, learning_rate, num_epochs, spk_reg=0.0
     else:
         optimizer = torch.optim.Adam([
             {'params': snn.base_params},
-            {'params': tau_m_params, 'lr': learning_rate * tau_m_lr_scale},
-            {'params': tau_adp_params, 'lr': learning_rate * tau_adp_lr_scale}],
+            {'params': tau_m_params, 'lr': learning_rate * tau_m_lr_scale}],
             lr=learning_rate, eps=1e-5)
         
     step_size, gamma = scheduler[0], scheduler[1]
@@ -149,13 +148,17 @@ def propagate_batch(snn, data, dropout = 0.0):
     data is either a train or a test loader
     '''
 
+
+
     dropout = torch.nn.Dropout(p=dropout, inplace=False)
 
-    for images, labels in data:
+    with amp.autocast(enabled=snn.use_amp):
 
-        images = dropout(images.float())
-        snn.propagate(images, labels)
-        break
+        for images, labels in data:
+
+            images = dropout(images.float())
+            snn.propagate(images, labels)
+            break
 
     return images, labels
 
@@ -261,3 +264,25 @@ def get_gradients(snn):
     }
 
     return stored_grads
+
+
+def print_spike_info(snn, layer):
+    total_spikes = torch.sum(snn.spike_state[layer]).item()
+    dim = snn.spike_state[layer].shape[-1]
+    spk_per_sample = total_spikes/snn.batch_size
+    spk_per_timestep = spk_per_sample/snn.win
+    spk_per_neuron = spk_per_sample/dim
+    spk_density = spk_per_timestep/(snn.win*dim)
+
+    print(f'for {layer} layer')
+    print(f'total spikes: {total_spikes}')
+    print(f'spikes per sample: {spk_per_sample}')
+    print(f'spikes per timestep: {np.round(spk_per_timestep, 2)} / {dim}')
+    print(f'spikes per neuron: {np.round(spk_per_neuron, 2)} / {snn.win}')
+    print(f'spike density: {spk_density}')
+
+
+def set_seed(seed):
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    np.random.seed(seed)

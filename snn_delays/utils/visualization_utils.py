@@ -35,7 +35,7 @@ def save_fig(model_dir, fig_name):
     print('Figure saved in ', model_dir)
 
 
-def plot_param(w, mode='histogram', title='', xlabel='', ylabel='', ax=None, colormap='RdBu', vminmax=None):
+def plot_param(w, mode='histogram', title='', xlabel='', ylabel='', ax=None, colormap='RdBu', vminmax=None, transform=None):
     """
     Function to plot histogram or matrix representation of a parameter.
 
@@ -64,6 +64,9 @@ def plot_param(w, mode='histogram', title='', xlabel='', ylabel='', ax=None, col
         w = w.weight.data.cpu().numpy()
     except:
         w = w.data.cpu().numpy()
+
+    if transform is not None:
+        w = transform(w)
 
     # Get minimum and maximum parameter value
     if vminmax is None:
@@ -660,3 +663,22 @@ def plot_raster(snn, layer, n, mode='spikes', colorbar = False):
     plt.xlabel('Time (ms)')
 
     return plt.gca()
+
+
+def frame_2_image(snn):
+    '''
+    this generates something like time-surfaces
+    valid only for image datasets
+    '''
+    
+    sample = np.random.randint(0,snn.batch_size)
+
+    dim = int(np.sqrt(snn.num_input/2))
+    frames = snn.spike_state['input'][:,sample,:][:, :snn.num_input//2].view(snn.win,dim, dim )
+
+    tau = snn.win
+    composed_image = np.zeros((dim, dim))
+    for rev_t, frame in enumerate(frames):
+        t = snn.win-rev_t
+        composed_image += np.exp(-t/tau)*frame.detach().cpu().numpy()
+    return composed_image

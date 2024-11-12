@@ -121,6 +121,11 @@ class DatasetLoader:
         # Add the dataset and classes (optionally) names to the dictionary
         self.dataset_dict['dataset_name'] = dataset
 
+        if 'crop_to' in kwargs:
+            self.dataset_dict['time_ms'] = kwargs['crop_to']/1000
+        else:
+            self.dataset_dict['time_ms'] = False
+
         if 'mnist' in dataset or 'shd' in dataset:
             self.dataset_dict['class_names'] = [
                 'zero, one, two, three, four, five, six, seven, eight, nine']
