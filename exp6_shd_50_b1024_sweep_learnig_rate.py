@@ -13,7 +13,7 @@ device = get_device()
 torch.manual_seed(10)
 
 dataset = 'shd'
-total_time = 250
+total_time = 50
 batch_size = 1024
 
 # DATASET
@@ -24,7 +24,7 @@ DL = DatasetLoader(dataset=dataset,
                   total_time=total_time)
 train_loader, test_loader, dataset_dict = DL.get_dataloaders()
 
-for lr in [0.1*1e-3, 1e-3, 2e-3, 3e-3, 4e-3, 5e-3, 6e-3, 7e-3, 8e-3, 9e-3, 1e-2]:
+for lr in [1e-5, 5e-5, 1e-4, 5e-4, 1e-3, 2e-3, 3e-3, 4e-3, 5e-3, 6e-3, 7e-3, 8e-3, 9e-3, 1e-2]: 
            
       #num_epochs = (batch_size*96) // 256
       num_epochs = 100
@@ -33,8 +33,9 @@ for lr in [0.1*1e-3, 1e-3, 2e-3, 3e-3, 4e-3, 5e-3, 6e-3, 7e-3, 8e-3, 9e-3, 1e-2]
       taimu1 = time.time()
 
       tau_m = 'normal'
-      delay = (150,6)
-      ckpt_dir = 'exp_soa1024_learning_rate'  # donde se guardará
+      #delay = (150,6)
+      delay = (48,16)
+      ckpt_dir = 'exp_soa50_1024_learning_rate'  # donde se guardará
 
       snn = SNN(dataset_dict=dataset_dict, structure=(32, 2), connection_type='f',
             delay=delay, delay_type='ho', tau_m = tau_m,
