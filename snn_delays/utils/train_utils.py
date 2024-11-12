@@ -19,7 +19,7 @@ def get_device():
     return device
 
 def train(snn, train_loader, test_loader, learning_rate, num_epochs, spk_reg=0.0, l1_reg=0.0,
-          dropout=0.0, lr_scale_tau=2.0, scheduler=(1, 0.98), ckpt_dir='checkpoint',
+          dropout=0.0, lr_tau=0.001, scheduler=(1, 0.98), ckpt_dir='checkpoint',
           test_behavior=None, test_every=5, delay_pruning = None, weight_pruning=None, lsm=False,
           random_delay_pruning = None, weight_quantization = None, k=None, depth= None, freeze_taus = None, 
           verbose=True):
@@ -40,8 +40,6 @@ def train(snn, train_loader, test_loader, learning_rate, num_epochs, spk_reg=0.0
     #     snn, name.split('.')[0]) for name, _ in snn.state_dict().items()
     #     if 'tau_adp' in name]
 
-    tau_m_lr_scale = lr_scale_tau
-
     if lsm:
         # Freeze all parameters except the last layer
         for name, param in snn.named_parameters():
@@ -53,7 +51,7 @@ def train(snn, train_loader, test_loader, learning_rate, num_epochs, spk_reg=0.0
     else:
         optimizer = torch.optim.Adam([
             {'params': snn.base_params},
-            {'params': tau_m_params, 'lr': learning_rate * tau_m_lr_scale}],
+            {'params': tau_m_params, 'lr': lr_tau}],
             lr=learning_rate, eps=1e-5)
         
     step_size, gamma = scheduler[0], scheduler[1]
