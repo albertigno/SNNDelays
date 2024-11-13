@@ -40,7 +40,7 @@ ckpt_dir = 'abl1_shd50'
 train_params = {'learning_rate':1e-3, 'num_epochs':100, 'spk_reg':0.0, 'l1_reg':0.0,
           'dropout':0.0, 'lr_tau': 0.1, 'scheduler':(10, 0.95), 'ckpt_dir':ckpt_dir,
           'test_behavior':tb_save_max_last_acc, 'test_every':1, 'delay_pruning':None, 'weight_pruning':None,
-          'lsm':False, 'weight_quantization': None, 'k':None, 'depth': None, 'verbose':True}
+          'lsm':False, 'random_delay_pruning' : None, 'weight_quantization': None, 'k':None, 'depth': None, 'verbose':True}
 
 #### first run (f+d)
 sweep_params = {
@@ -141,6 +141,7 @@ for cfg in cfgs:
 
         snn = SNN(**model_params)
         snn.model_name = cfg['name'] + '_rpt' + str(repetition)
+        snn.save_model(snn.model_name + "_initial", ckpt_dir)
 
         train(snn, train_loader, test_loader, **train_params)
 
@@ -191,5 +192,6 @@ for cfg in cfgs:
 
         snn = SNN(**model_params)
         snn.model_name = cfg['name'] + '_rpt' + str(repetition)
+        snn.save_model(snn.model_name + "_initial", ckpt_dir)
 
         train(snn, train_loader, test_loader, **train_params)
