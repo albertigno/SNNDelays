@@ -26,8 +26,8 @@ DL = DatasetLoader(dataset=dataset,
 train_loader, test_loader, dataset_dict = DL.get_dataloaders()
 
 for lr in [1e-4, 1e-3, 5e-3, 1e-2]: 
-      for lr_tau in [1e-4, 1e-3, 1e-2, 1e-1, 1.0]:
-           
+      #for lr_tau in [1e-4, 1e-3, 1e-2, 1e-1, 1.0]:
+      for lr_tau in [5.0, 10.0]:           
             #num_epochs = (batch_size*96) // 256
             num_epochs = 100
 
@@ -55,7 +55,8 @@ for lr in [1e-4, 1e-3, 5e-3, 1e-2]:
             print(f'[INFO] TIEMPO: {time.time() - taimu1}', flush=True)
 
 for lr in [1e-4, 1e-3, 5e-3, 1e-2]: 
-      for lr_tau in [1e-4, 1e-3, 1e-2, 1e-1, 1.0]:           
+      #for lr_tau in [1e-4, 1e-3, 1e-2, 1e-1, 1.0]:ç
+      for lr_tau in [5.0, 10.0]:           
             #num_epochs = (batch_size*96) // 256
             num_epochs = 100
 
@@ -65,7 +66,7 @@ for lr in [1e-4, 1e-3, 5e-3, 1e-2]:
             tau_m = 'normal'
             #delay = (150,6)
             delay = None
-            ckpt_dir = 'exp_soa50_1024_learning_rate_final'  # donde se guardará
+            ckpt_dir = 'exp7_shd_50_b1024_sweep_learnig_rate_also_tau'  # donde se guardará
 
             snn = SNN(dataset_dict=dataset_dict, structure=(64, 2), connection_type='f',
                   delay=delay, delay_type='h', tau_m = tau_m,
@@ -84,7 +85,8 @@ for lr in [1e-4, 1e-3, 5e-3, 1e-2]:
 
 
 for lr in [1e-4, 1e-3, 5e-3, 1e-2]: 
-      for lr_tau in [1e-4, 1e-3, 1e-2, 1e-1, 1.0]:           
+      #for lr_tau in [1e-4, 1e-3, 1e-2, 1e-1, 1.0]:
+      for lr_tau in [5.0, 10.0]:           
             #num_epochs = (batch_size*96) // 256
             num_epochs = 100
 
@@ -94,7 +96,7 @@ for lr in [1e-4, 1e-3, 5e-3, 1e-2]:
             tau_m = 'normal'
             #delay = (150,6)
             delay = None
-            ckpt_dir = 'exp_soa50_1024_learning_rate_final'  # donde se guardará
+            ckpt_dir = 'exp7_shd_50_b1024_sweep_learnig_rate_also_tau'  # donde se guardará
 
             snn = SNN(dataset_dict=dataset_dict, structure=(64, 2), connection_type='r',
                   delay=delay, delay_type='h', tau_m = tau_m,
