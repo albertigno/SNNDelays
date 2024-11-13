@@ -1,8 +1,7 @@
-from hwsnn.models.snn import SNN
-from hwsnn.utils.utils import train
-from hwsnn.utils.dataset_loader import DatasetLoader
-from hwsnn.utils.utils import train, get_device
-from hwsnn.utils.test_behavior import tb_save_max_last_acc
+from snn_delays.snn import SNN
+from snn_delays.utils.dataset_loader import DatasetLoader
+from snn_delays.utils.train_utils import train, get_device
+from snn_delays.utils.test_behavior import tb_save_max_last_acc
 import torch
 
 '''
