@@ -10,7 +10,6 @@ second run: 2 layer feedforward no delays
 this was run with three different loss_fn: 'mem_sum', 'mem_mot', 'mem_last'
 '''
 
-
 device = get_device()
 torch.manual_seed(10)
 
@@ -31,7 +30,7 @@ train_loader, test_loader, dataset_dict = DL.get_dataloaders()
 
 model_params = {'dataset_dict': dataset_dict, 'delay_type':'h',
                  'reset_to_zero':True, 'win':total_time,
-                 'surr':'fs', 'loss_fn':'mem_sum', 'batch_size':batch_size, 'device':device,
+                 'loss_fn':'mem_sum', 'batch_size':batch_size, 'device':device,
                  'debug':False}
 
 ckpt_dir = 'abl1_shd50'
