@@ -16,7 +16,7 @@ torch.manual_seed(10)
 
 dataset = 'ibm_gestures'
 total_time = 100
-batch_size = 64
+batch_size = 128
 
 # DATASET
 DL = DatasetLoader(dataset=dataset,

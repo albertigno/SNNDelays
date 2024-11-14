@@ -17,6 +17,8 @@ dataset = 'ibm_gestures'
 total_time = 100
 batch_size = 128
 
+rpts = 3
+
 # DATASET
 DL = DatasetLoader(dataset=dataset,
                    caching='memory',
@@ -71,7 +73,7 @@ def get_configs(sweep_params, sweep_params_names):
 
 cfgs = get_configs(sweep_params, sweep_params_names)
 
-num_repetitions = 10
+num_repetitions = rpts
 for cfg in cfgs:
     for repetition in range(0, num_repetitions):
         for key, value in zip(cfg.keys(), cfg.values()):
@@ -124,7 +126,7 @@ def get_configs(sweep_params, sweep_params_names):
 
 cfgs = get_configs(sweep_params, sweep_params_names)
 
-num_repetitions = 10
+num_repetitions = rpts
 for cfg in cfgs:
     for repetition in range(0, num_repetitions):
         for key, value in zip(cfg.keys(), cfg.values()):
@@ -175,7 +177,7 @@ def get_configs(sweep_params, sweep_params_names):
 
 cfgs = get_configs(sweep_params, sweep_params_names)
 
-num_repetitions = 10
+num_repetitions = rpts
 for cfg in cfgs:
     for repetition in range(0, num_repetitions):
         for key, value in zip(cfg.keys(), cfg.values()):
