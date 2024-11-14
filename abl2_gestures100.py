@@ -23,6 +23,7 @@ DL = DatasetLoader(dataset=dataset,
                    num_workers=0,
                    batch_size=batch_size,
                    total_time=total_time,
+                   sensor_size_to=64,
                    crop_to=1e6)
 train_loader, test_loader, dataset_dict = DL.get_dataloaders()
 
