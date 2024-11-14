@@ -24,7 +24,7 @@ import sys
 import h5py
 from snn_delays.config import DATASET_PATH
 
-one_hot_encoder = OneHotEncoder(sparse=False)
+#one_hot_encoder = OneHotEncoder(sparse=False)
 
 # TODO: Cuando se usa el Dataloader con downsample = True, da error:
 #  DL = DatasetLoader(dataset='psmnist', caching='disk', num_workers=0,

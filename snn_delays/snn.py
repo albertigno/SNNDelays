@@ -481,6 +481,9 @@ class SNN(Training, nn.Module):
         # inputs
         self.input2spike_th = 0.5
 
+        # if total time is not defined, you need to set a custom delta_t
+        self.custom_delta_t = None
+
         # Asserts to check input arguments
         assert 'num_training_samples' in dataset_dict and \
                'num_input' in dataset_dict and 'num_output' in dataset_dict, \
@@ -743,7 +746,7 @@ class SNN(Training, nn.Module):
             delta_t = time_ms/self.win
             print(f"Delta t: {delta_t} ms")
         else:
-            delta_t = self.win ####### FIX!!!!!
+            delta_t = self.custom_delta_t ####### FIX!!!!!
             print("[WARNING]: delta_t not defined")
 
         if type(self.tau_m) == float:
