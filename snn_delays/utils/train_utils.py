@@ -30,15 +30,8 @@ def train(snn, train_loader, test_loader, learning_rate, num_epochs, spk_reg=0.0
     k, depth are to be set if you want truncated BPTT
     """
 
-    tau_m_params = [getattr(
-        snn, name.split('.')[0]) for name, _ in snn.state_dict().items()
-        if 'tau_m' in name]
-
-    # print(tau_m_params)
-    
-    # tau_adp_params = [getattr(
-    #     snn, name.split('.')[0]) for name, _ in snn.state_dict().items()
-    #     if 'tau_adp' in name]
+    tau_m_params = [param for name, param in snn.named_parameters() if 'tau' in name]
+    weight_params = [param for name, param in snn.named_parameters() if 'f' in name]
 
     if lsm:
         # Freeze all parameters except the last layer
@@ -50,7 +43,7 @@ def train(snn, train_loader, test_loader, learning_rate, num_epochs, spk_reg=0.0
         optimizer = torch.optim.Adam([param for param in snn.parameters() if param.requires_grad], lr=learning_rate)
     else:
         optimizer = torch.optim.Adam([
-            {'params': snn.base_params},
+            {'params': weight_params},
             {'params': tau_m_params, 'lr': lr_tau}],
             lr=learning_rate, eps=1e-5)
         

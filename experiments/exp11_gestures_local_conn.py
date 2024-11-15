@@ -4,6 +4,7 @@ from snn_delays.snn import SNN
 from snn_delays.utils.dataset_loader import DatasetLoader
 from snn_delays.utils.train_utils import train, get_device
 from snn_delays.utils.test_behavior import tb_save_max_last_acc
+from snn_delays.utils.hw_aware_utils import create_local_connection_mask
 
 '''
 SHD dataset as in ablation study
@@ -14,9 +15,9 @@ device = get_device()
 # for reproducibility
 torch.manual_seed(10)
 
-dataset = 'shd'
-total_time = 50
-batch_size = 1024
+dataset = 'ibm_gestures'
+total_time = 100
+batch_size = 128
 
 # DATASET
 DL = DatasetLoader(dataset=dataset,
@@ -24,23 +25,34 @@ DL = DatasetLoader(dataset=dataset,
                   num_workers=0,
                   batch_size=batch_size,
                   total_time=total_time,
+                  sensor_size_to=64,
                   crop_to=1e6)
 train_loader, test_loader, dataset_dict = DL.get_dataloaders()
           
-num_epochs = 50
+num_epochs = 100
 
 lr = 1e-3
 # SNN CON DELAYS
 taimu1 = time.time()
 
 tau_m = 'normal'
-delay = (48,16)
+delay = None
 ckpt_dir = 'exp3_shd50_rnn' 
 
-snn = SNN(dataset_dict=dataset_dict, structure=(64, 2), connection_type='f',
+# Parameters
+input_size = 64
+kernel_size = 5
+stride = 5
+channels = 2
+
+mask = create_local_connection_mask(input_size, kernel_size, stride, channels)
+
+print(mask.shape)
+
+snn = SNN(dataset_dict=dataset_dict, structure=[144, 64], connection_type='f',
     delay=delay, delay_type='h', tau_m = tau_m,
     win=total_time, loss_fn='mem_sum', batch_size=batch_size, device=device,
-    debug=False)
+    debug=False, mask=mask)
 snn.input2spike_th = None 
 
 snn.to(device)

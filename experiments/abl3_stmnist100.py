@@ -28,6 +28,8 @@ DL = DatasetLoader(dataset=dataset,
 
 train_loader, test_loader, dataset_dict = DL.get_dataloaders()
 
+dataset_dict["time_ms"] = 2e3
+
 ### fixed params
 
 model_params = {'dataset_dict': dataset_dict, 'delay_type':'h',

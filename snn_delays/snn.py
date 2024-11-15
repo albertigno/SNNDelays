@@ -375,6 +375,34 @@ class Training:
 
     #     return optimizer
 
+
+class MaskedLinear(nn.Module):
+    def __init__(self, in_features, out_features, mask):
+        super(MaskedLinear, self).__init__()
+        self.in_features = in_features
+        self.out_features = out_features
+        
+        # Define the linear layer with PyTorch's default initialization
+        self.linear = nn.Linear(in_features, out_features, bias=False)
+        
+        # Register the mask
+        self.register_buffer('mask', mask)
+        
+        # Apply the mask to the weights after initialization
+        with torch.no_grad():
+            ##### uncomment to enforce negative weights (self inhibition experiment)
+            # data = self.linear.weight.data
+            # self.linear.weight.data = -1.0*data*(data>0) + data*(data<0)
+            self.linear.weight *= self.mask
+    
+    def forward(self, x):
+        # Apply the mask during the forward pass to enforce connectivity
+
+        masked_weight = self.linear.weight * self.mask
+        return nn.functional.linear(x, masked_weight)
+
+
+
 class SNN(Training, nn.Module):
     """
     Spiking neural network (SNN) class.
@@ -384,7 +412,7 @@ class SNN(Training, nn.Module):
     """
 
     def __init__(self, dataset_dict, structure=(256, 2),
-                 connection_type='r', delay=None, delay_type='ho',
+                 connection_type='r', delay=None, mask=None, delay_type='ho',
                  reset_to_zero=True, tau_m='normal', win=50,
                  loss_fn='mem_sum',
                  batch_size=256, device='cuda', debug=False):
@@ -555,6 +583,11 @@ class SNN(Training, nn.Module):
         self.h_layers = None
         self.tau_m_h = None
 
+        self.mask = mask
+        #### CHECK
+        if self.mask is not None:
+            self.register_buffer('mask', mask)
+
         # Set features of the network
         self.define_metaparameters()
         self.set_layers()
@@ -567,6 +600,8 @@ class SNN(Training, nn.Module):
         #self.use_amp = False
         self.use_amp = True # This only works in GPU
         self.scaler = amp.GradScaler()        
+
+
 
     def define_metaparameters(self):
         """
@@ -689,8 +724,13 @@ class SNN(Training, nn.Module):
         num_first_layer = self.num_neurons_list[0]
 
         # if delays is None, len(self.delays) = 1
-        setattr(self, 'f0_f1', nn.Linear(self.num_input*len(self.delays_i),
-                                    num_first_layer, bias=False))            
+
+        if self.mask is not None:
+            setattr(self, 'f0_f1', MaskedLinear(self.num_input*len(self.delays_i),
+                                        num_first_layer, mask=self.mask))               
+        else:
+            setattr(self, 'f0_f1', nn.Linear(self.num_input*len(self.delays_i),
+                                        num_first_layer, bias=False))            
 
         # Set linear layers dynamically for the l hidden layers
         for lay_name_1, lay_name_2, num_pre, num_pos in zip(self.layer_names[:-1],
@@ -699,9 +739,20 @@ class SNN(Training, nn.Module):
             # This only if connection is recurrent
             if self.connection_type == 'r':
                 name = lay_name_1 + '_' + lay_name_1
+                # if self.mask is not None:
+                #     setattr(self, name, MaskedLinear(
+                #         num_pre* len(self.delays_h), num_pre, mask=self.mask))
+                # else:
+                #     setattr(self, name, nn.Linear(
+                #         num_pre* len(self.delays_h), num_pre, bias=bias))
                 setattr(self, name, nn.Linear(
                     num_pre* len(self.delays_h), num_pre, bias=bias))
+                
                 self.proj_names.append(name)
+
+                # # Apply the mask to the weights after initialization
+                # with torch.no_grad():
+                #     getattr(self, name).weight *= self.mask                
 
             # Normal layer
             name = lay_name_1 + '_' + lay_name_2
@@ -789,23 +840,6 @@ class SNN(Training, nn.Module):
                         ['tau_m_' + str(i + 1)
                             for i in range(self.num_layers)]]
         self.tau_m_h.append(self.tau_m_o)
-
-        # Set base parameters and their names
-        self.base_params = [
-            getattr(self, name.split('.')[0]).weight for name, _ in
-            self.state_dict().items() if (name[0] == 'f' or name[0] == 'r')]
-
-        self.base_params_names = [
-            name.split('.')[0] for name, _ in
-            self.state_dict().items() if (name[0] == 'f' or name[0] == 'r')]
-
-        # Set tau parameters and their names
-        self.tau_params = [
-            getattr(self, name.split('.')[0]) for name, _ in
-            self.state_dict().items() if name[0] == 't']
-
-        self.tau_params_names = [
-            name for name, _ in self.state_dict().items() if name[0] == 't']
 
     def init_state(self, input):
         """
