@@ -57,6 +57,8 @@ class TonicDataset:
                     'sensor_size': datasets.DVSGesture.sensor_size},
             'smnist': {'n_classes': 10,
                     'sensor_size': (99, 1, 1)},
+            'stmnist': {'n_classes': 10,
+                    'sensor_size': (10,10,2)},
             'lipsfus': {'n_classes': 10,
                     'sensor_size': (256, 1, 1)}
         }

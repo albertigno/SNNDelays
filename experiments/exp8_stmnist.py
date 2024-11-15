@@ -34,20 +34,22 @@ lr = 1e-3
 taimu1 = time.time()
 
 tau_m = 'normal'
-delay = (100,30)
+#delay = (100,30)
+delay = None
 ckpt_dir = 'exp8_mt_mnist' 
 
-snn = SNN(dataset_dict=dataset_dict, structure=(64, 2), connection_type='f',
+dataset_dict["time_ms"] = 2e3
+
+snn = SNN(dataset_dict=dataset_dict, structure=(64, 2), connection_type='r',
     delay=delay, delay_type='h', tau_m = tau_m,
     win=total_time, loss_fn='mem_sum', batch_size=batch_size, device=device,
     debug=False)
 
 # 48: 3s/epoca
 snn.input2spike_th = None # 48 -> (81%)
-snn.custom_delta_t = 2e3/total_time # assuming a total time equal to 2 seconds
 
 snn.to(device)
-train(snn, train_loader, test_loader, lr, num_epochs, dropout=0.0, lr_scale=(5.0, 2.0), 
+train(snn, train_loader, test_loader, lr, num_epochs, dropout=0.0, 
     test_behavior=tb_save_max_last_acc, ckpt_dir=ckpt_dir, scheduler=(100, 0.95), test_every=1)
 
 print(f'[INFO] TIEMPO: {time.time() - taimu1}', flush=True)

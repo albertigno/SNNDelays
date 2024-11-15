@@ -46,7 +46,7 @@ class DatasetLoader:
         self.total_time = total_time
 
         # Define available tonic datasets
-        tonic_datasets = ['shd', 'shd_multicrop', 'ssc', 'nmnist',
+        tonic_datasets = ['shd', 'shd_multicrop', 'ssc', 'nmnist','stmnist',
                           'nmnist784', 'ibm_gestures', 'smnist', 'lipsfus']
 
         # Generate train and test datasets
@@ -75,6 +75,11 @@ class DatasetLoader:
             elif dataset == 'smnist':
                 from snn_delays.datasets.tonic_datasets import SMNISTDataset
                 _dataset = SMNISTDataset(
+                    dataset_name=dataset, total_time=total_time, **kwargs)
+
+            elif dataset == 'stmnist':
+                from snn_delays.datasets.tonic_prototype_datasets import STMNISTDataset
+                _dataset = STMNISTDataset(
                     dataset_name=dataset, total_time=total_time, **kwargs)
 
             # Get dataset dictionary
