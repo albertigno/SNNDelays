@@ -1,8 +1,12 @@
+print('script loaded', flush=True)
+
 from snn_delays.snn import SNN
 from snn_delays.utils.dataset_loader import DatasetLoader
 from snn_delays.utils.train_utils import train, get_device
 from snn_delays.utils.test_behavior import tb_save_max_last_acc
 import torch
+
+print('imports done', flush=True)
 
 '''
 first run: 1 layer
