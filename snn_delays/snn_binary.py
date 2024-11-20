@@ -8,6 +8,7 @@ import sys
 import json
 import math 
 import numpy as np
+from torch.autograd import Function
 
 DatasetLoader
 
@@ -375,6 +376,81 @@ class Training:
 
     #     return optimizer
 
+# Custom Binarization Function (like the one you provided)
+class Binarize(Function):
+    @staticmethod
+    def forward(ctx, input, quant_mode='det', inplace=False):
+        ctx.inplace = inplace
+        #ctx.save_for_backward(input, scale)
+        if ctx.inplace:
+            ctx.mark_dirty(input)
+            output = input
+        else:
+            output = input.clone()
+
+        #scale = output.abs().mean() if allow_scale else 1
+        scale = output.abs().mean()
+
+        if quant_mode == 'det':
+            #return output.div(scale).sign().mul(scale) # {-1, 1}
+            #return output.div(scale).clamp(0, 1).mul(scale) # {0, 1} relu-like
+            #return (output > 0.0).float().mul(scale) # {0, 1}
+            return (output > 0.0).float().mul(scale).mul(0.3) # {0, 1} halfscale
+        else:
+            return output.div(scale).add_(1).div_(2).add_(torch.rand(output.size()).add(-0.5)).clamp_(0,1).round().mul_(2).add_(-1).mul(scale)
+
+    # with trainable scale
+    # @staticmethod
+    # def backward(ctx, grad_output):
+    #     input, scale = ctx.saved_tensors
+    #     # Straight-Through Estimator (STE) for binary values
+    #     grad_input = grad_output.clone()
+    #     grad_scale = None
+    #     if scale.requires_grad:
+    #         # Gradient for scale (simplified)
+    #         grad_scale = grad_output.mul(input.sign()).mean()
+    #     return grad_input, grad_scale, None, None
+
+    ## without trainable scale
+    @staticmethod
+    def backward(ctx, grad_output):
+        # Straight-through Estimator (STE)
+        grad_input = grad_output
+        return grad_input, None, None, None
+
+
+
+
+# Custom binary weight layer
+# class BinaryLinear(nn.Module):
+#     def __init__(self, in_features, out_features, w_scaling, bias=False):
+#         super(BinaryLinear, self).__init__()
+#         self.fanin_weight_contrib = w_scaling/in_features
+#         self.in_features = in_features
+#         self.out_features = out_features
+#         self.weight = nn.Parameter(torch.randn(out_features, in_features))  # Full-precision weights
+#         self.bias = nn.Parameter(torch.zeros(out_features)) if bias else None
+
+#     def forward(self, x):
+#         # Binarize weights to {0, 1}
+#         binary_weight = self.fanin_weight_contrib*(self.weight >= 0).float()  # Threshold weights at 0
+#         return F.linear(x, binary_weight, self.bias)
+
+class BinaryLinear(nn.Module):
+    def __init__(self, in_features, out_features, bias=False):
+        super(BinaryLinear, self).__init__()
+        self.in_features = in_features
+        self.out_features = out_features
+        self.weight = nn.Parameter(torch.randn(out_features, in_features))  # Full-precision weights
+        self.bias = nn.Parameter(torch.zeros(out_features)) if bias else None
+
+    def forward(self, x, quant_mode='det'):
+        # Apply binarization to weights using the Binarize function
+        #binary_weight = Binarize.apply(self.weight, quant_mode, allow_scale)
+        binary_weight = Binarize.apply(self.weight, quant_mode)
+        return F.linear(x, binary_weight, self.bias)
+
+
 
 class MaskedLinear(nn.Module):
     def __init__(self, in_features, out_features, mask):
@@ -403,7 +479,7 @@ class MaskedLinear(nn.Module):
 
 
 
-class SNN(Training, nn.Module):
+class BinarySNN(Training, nn.Module):
     """
     Spiking neural network (SNN) class.
 
@@ -412,7 +488,7 @@ class SNN(Training, nn.Module):
     """
 
     def __init__(self, dataset_dict, structure=(256, 2),
-                 connection_type='r', delay=None, mask=None, delay_type='ho',
+                 connection_type='r', delay=None, binary=None, delay_type='ho',
                  reset_to_zero=True, tau_m='normal', win=50,
                  loss_fn='mem_sum',
                  batch_size=256, device='cuda', debug=False):
@@ -475,7 +551,7 @@ class SNN(Training, nn.Module):
         internal states for all layers (membrane and spikes). Default = False.
         """
 
-        super(SNN, self).__init__()
+        super(BinarySNN, self).__init__()
         
         # Gather keyword arguments for reproducibility in loaded models
         self.kwargs = locals()
@@ -583,10 +659,11 @@ class SNN(Training, nn.Module):
         self.h_layers = None
         self.tau_m_h = None
 
-        if mask is not None:
-            self.register_buffer('mask', mask)
-        else:
-            self.mask = None
+        # if mask is not None:
+        #     self.register_buffer('mask', mask)
+        # else:
+        #     self.mask = None
+        self.binary = binary
 
         # Set features of the network
         self.define_metaparameters()
@@ -725,9 +802,12 @@ class SNN(Training, nn.Module):
 
         # if delays is None, len(self.delays) = 1
 
-        if self.mask is not None:
-            setattr(self, 'f0_f1', MaskedLinear(self.num_input*len(self.delays_i),
-                                        num_first_layer, mask=self.mask))               
+
+
+        if self.binary is not None:
+            #setattr(self, 's0_s1', nn.Parameter(torch.tensor(self.binary_scales[0])))
+            setattr(self, 'f0_f1', BinaryLinear(self.num_input*len(self.delays_i),
+                                        num_first_layer))               
         else:
             setattr(self, 'f0_f1', nn.Linear(self.num_input*len(self.delays_i),
                                         num_first_layer, bias=False))            
@@ -739,14 +819,13 @@ class SNN(Training, nn.Module):
             # This only if connection is recurrent
             if self.connection_type == 'r':
                 name = lay_name_1 + '_' + lay_name_1
-                # if self.mask is not None:
-                #     setattr(self, name, MaskedLinear(
-                #         num_pre* len(self.delays_h), num_pre, mask=self.mask))
-                # else:
-                #     setattr(self, name, nn.Linear(
-                #         num_pre* len(self.delays_h), num_pre, bias=bias))
-                setattr(self, name, nn.Linear(
-                    num_pre* len(self.delays_h), num_pre, bias=bias))
+
+                if self.binary is not None:
+                    setattr(self, name, BinaryLinear(
+                        num_pre* len(self.delays_h), num_pre, self.w_scale_binary))
+                else:
+                    setattr(self, name, nn.Linear(
+                        num_pre* len(self.delays_h), num_pre, bias=bias))
                 
                 self.proj_names.append(name)
 
@@ -756,20 +835,37 @@ class SNN(Training, nn.Module):
 
             # Normal layer
             name = lay_name_1 + '_' + lay_name_2
-            setattr(self, name, nn.Linear(num_pre * len(self.delays_h),
-                                        num_pos, bias=bias))             
+
+            if self.binary is not None:
+                    setattr(self, name, BinaryLinear(num_pre * len(self.delays_h),
+                                    num_pos, self.w_scale_binary))    
+            else:
+                setattr(self, name, nn.Linear(num_pre * len(self.delays_h),
+                                            num_pos, bias=bias))             
+            
             self.proj_names.append(name)
 
         if self.connection_type == 'r':
             name = self.layer_names[-1] + '_' + self.layer_names[-1]
-            setattr(self, name, nn.Linear(
-                self.num_neurons_list[-1]* len(self.delays_h), self.num_neurons_list[-1], bias=bias))                              
+
+            if self.binary is not None:
+                setattr(self, name, BinaryLinear(
+                    self.num_neurons_list[-1]* len(self.delays_h), self.num_neurons_list[-1], self.w_scale_binary))                   
+            else:
+                setattr(self, name, nn.Linear(
+                    self.num_neurons_list[-1]* len(self.delays_h), self.num_neurons_list[-1], bias=bias))                              
+            
             self.proj_names.append(name)
 
         # output layer
         name = self.layer_names[-1]+'_o'
-        setattr(self, name, nn.Linear(self.num_neurons_list[-1] * len(self.delays_o),
-                                    self.num_output, bias=False))
+        if self.binary is not None:
+            #setattr(self, 's1_o', nn.Parameter(torch.tensor(self.binary_scales[1]))) 
+            setattr(self, name, BinaryLinear(self.num_neurons_list[-1] * len(self.delays_o),
+                                        self.num_output)) 
+        else:
+            setattr(self, name, nn.Linear(self.num_neurons_list[-1] * len(self.delays_o),
+                                        self.num_output, bias=False))
             
         self.proj_names.append(name)
 
@@ -1176,7 +1272,7 @@ class ModelLoader:
         #snn = params['type']
         #snn = snn(**kwargs) 
         
-        snn = SNN(**kwargs)
+        snn = BinarySNN(**kwargs)
         snn.to(device)
         snn.load_state_dict(params['net'], strict= False) # be careful with this
         snn.epoch = params['epoch']

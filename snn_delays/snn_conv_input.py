@@ -123,10 +123,15 @@ class Training:
             padding_im = torch.zeros((self.batch_size - len(images),) + images.shape[1:])
             images = torch.cat([images, padding_im], dim=0)
 
+        # if self.use_amp:
+        #     images = images.view(self.batch_size, self.win, -1).half().to(self.device)
+        # else:
+        #     images = images.view(self.batch_size, self.win, -1).float().to(self.device)
+
         if self.use_amp:
-            images = images.view(self.batch_size, self.win, -1).half().to(self.device)
+            images = images.half().to(self.device)
         else:
-            images = images.view(self.batch_size, self.win, -1).float().to(self.device)
+            images = images.float().to(self.device)
 
         # Squeeze to eliminate dimensions of size 1    
         if len(images.shape)>3:    
@@ -358,22 +363,26 @@ class Training:
 
         return all_refs, all_preds
 
-    # def lr_scheduler(self, optimizer, lr_decay_epoch=1, lr_decay=0.98):
-    #     """
-    #     Function to decay learning rate by a factor of lr_decay every
-    #     lr_decay_epoch epochs
-
-    #     :param optimizer: Optimizer used during training
-    #     :param lr_decay_epoch: Number of epochs to update learning rate
-    #     (default = 1)
-    #     :param lr_decay: Factor to reduce learning rate (default = 0.98)
-    #     """
-
-    #     if self.epoch % lr_decay_epoch == 0 and self.epoch > 1:
-    #         for param_group in optimizer.param_groups:
-    #             param_group['lr'] = param_group['lr'] * lr_decay
-
-    #     return optimizer
+class FlattenedConv2D(nn.Module):
+    def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1, groups=1, bias=False):
+        super(FlattenedConv2D, self).__init__()
+        
+        # Define the convolutional layer
+        self.conv = nn.Conv2d(
+            in_channels, out_channels, kernel_size, 
+            stride=stride, padding=padding, 
+            dilation=dilation, groups=groups, bias=bias
+        )
+    
+    def forward(self, x):
+        # Convolutional operation
+        conv_out = self.conv(x)
+        
+        # Flatten the activations
+        batch_size = conv_out.size(0)
+        flattened_out = conv_out.view(batch_size, -1)
+        
+        return flattened_out
 
 
 class MaskedLinear(nn.Module):
@@ -725,12 +734,14 @@ class SNN(Training, nn.Module):
 
         # if delays is None, len(self.delays) = 1
 
-        if self.mask is not None:
-            setattr(self, 'f0_f1', MaskedLinear(self.num_input*len(self.delays_i),
-                                        num_first_layer, mask=self.mask))               
-        else:
-            setattr(self, 'f0_f1', nn.Linear(self.num_input*len(self.delays_i),
-                                        num_first_layer, bias=False))            
+        setattr(self, 'f0_f1', FlattenedConv2D(2, 16, 4, 4))
+
+        # if self.mask is not None:
+        #     setattr(self, 'f0_f1', MaskedLinear(self.num_input*len(self.delays_i),
+        #                                 num_first_layer, mask=self.mask))               
+        # else:
+        #     setattr(self, 'f0_f1', nn.Linear(self.num_input*len(self.delays_i),
+        #                                 num_first_layer, bias=False))            
 
         # Set linear layers dynamically for the l hidden layers
         for lay_name_1, lay_name_2, num_pre, num_pos in zip(self.layer_names[:-1],
@@ -1042,7 +1053,8 @@ class SNN(Training, nn.Module):
                 prev_spikes = self.f0_f1(delayed_x.transpose(1, 2).reshape(
                     self.batch_size, -1))  # input layer is propagated (with delays)
             else:
-                prev_spikes = self.f0_f1(input[:, step, :].view(self.batch_size, -1))
+                #prev_spikes = self.f0_f1(input[:, step, :].view(self.batch_size, -1))
+                prev_spikes = self.f0_f1(input[:, step, :])
 
             self.w_idx = 0
             self.tau_idx = 0

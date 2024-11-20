@@ -665,13 +665,14 @@ def plot_raster(snn, layer, n, mode='spikes', colorbar = False):
     return plt.gca()
 
 
-def frame_2_image(snn):
+def frame_2_image(snn, sample='random'):
     '''
     this generates something like time-surfaces
     valid only for image datasets
     '''
     
-    sample = np.random.randint(0,snn.batch_size)
+    if sample == 'random':
+        sample = np.random.randint(0,snn.batch_size)
 
     dim = int(np.sqrt(snn.num_input/2))
     frames = snn.spike_state['input'][:,sample,:][:, :snn.num_input//2].view(snn.win,dim, dim )

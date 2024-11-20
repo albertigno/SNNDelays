@@ -32,6 +32,7 @@ def train(snn, train_loader, test_loader, learning_rate, num_epochs, spk_reg=0.0
 
     tau_m_params = [param for name, param in snn.named_parameters() if 'tau' in name]
     weight_params = [param for name, param in snn.named_parameters() if 'f' in name]
+    #binary_scale_params = [param for name, param in snn.named_parameters() if 's' in name]
 
     if lsm:
         # Freeze all parameters except the last layer

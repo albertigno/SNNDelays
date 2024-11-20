@@ -7,7 +7,7 @@ from snn_delays.utils.test_behavior import tb_save_max_last_acc
 from snn_delays.utils.hw_aware_utils import create_local_connection_mask
 
 '''
-SHD dataset as in ablation study
+Doesn't improve performance either in feedforward or with delays
 '''
 
 device = get_device()
@@ -36,20 +36,20 @@ lr = 1e-3
 taimu1 = time.time()
 
 tau_m = 'normal'
-delay = None
+delay = (99,33)
 ckpt_dir = 'exp3_shd50_rnn' 
 
 # Parameters
 input_size = 64
-kernel_size = 5
-stride = 5
+kernel_size = 4
+stride = 4
 channels = 2
 
 mask = create_local_connection_mask(input_size, kernel_size, stride, channels)
 
 print(mask.shape)
 
-snn = SNN(dataset_dict=dataset_dict, structure=[144, 64], connection_type='f',
+snn = SNN(dataset_dict=dataset_dict, structure=(256, 4), connection_type='f',
     delay=delay, delay_type='h', tau_m = tau_m,
     win=total_time, loss_fn='mem_sum', batch_size=batch_size, device=device,
     debug=False, mask=mask)
