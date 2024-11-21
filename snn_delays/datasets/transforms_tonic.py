@@ -41,6 +41,7 @@ class CropTimeRandom:
     """
 
     # min: int = None
+    max_start: int = None
     duration: int = None
 
     def __call__(self, events):
@@ -49,11 +50,15 @@ class CropTimeRandom:
         #self.max = np.random.randint(200000, 1.5e6)
         # self.max = np.random.choice([100000, 1e6])
 
-        start =  np.random.choice([0, int(0.1*self.duration)])
-        duration = np.random.choice([int(0.9*self.duration), int(1.1*self.duration)])
+        #start =  int(1e4*np.random.rand())
+        start = np.random.randint(0, self.max_start)
+        end = start + self.duration
+
+        print(start)
 
         assert "t" in events.dtype.names
         # if self.max is None:
         #     self.max = np.max(events["t"])
         #return events[(events["t"] >= self.min) & (events["t"] <= self.max)]
-        return events[(events["t"] >= start) & (events["t"] <= start+duration)]
+        #return events[(events["t"] >= start) & (events["t"] <= start+duration)]
+        return events[(events["t"] >= start) & (events["t"] <= end)]

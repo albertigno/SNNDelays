@@ -37,7 +37,7 @@ class TonicDataset:
 
     def __init__(self, dataset_name, total_time, sensor_size_to=None,
                  crop_to=None, one_polarity=False, merge_polarity=False, 
-                 random_crop=None):
+                 random_crop_to=None):
 
         # Initialization of attributes
         self.dataset_name = dataset_name
@@ -63,6 +63,8 @@ class TonicDataset:
                     'sensor_size': (256, 1, 1)}
         }
         self.n_classes = parameter_dataset[self.dataset_name]['n_classes']
+        #self.duration_ms = parameter_dataset[self.dataset_name]['duration_ms']
+
         original_sensor_size = \
             parameter_dataset[self.dataset_name]['sensor_size']
 
@@ -93,10 +95,12 @@ class TonicDataset:
                 transforms.CropTime(0, crop_to))
             
         # Random crop transformation
-        if random_crop is not None:
+        if random_crop_to is not None:
             #duration = 2e6 # shd
-            duration = 500000 # shd
-            list_sample_transform.append(CropTimeRandom(duration))
+            #duration = 500000 # shd
+            max_start = random_crop_to[0]
+            duration = random_crop_to[1]
+            list_sample_transform.append(CropTimeRandom(max_start, duration))
 
         # Merge polarity transformation
         if merge_polarity:

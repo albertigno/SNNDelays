@@ -21,7 +21,7 @@ dataset = 'psmnist'
 total_time = 196
 batch_size = 1024
 
-rpts = 10
+rpts = 1 #### 29s/epoch drago: too slow to make so many trainings
 
 # DATASET
 DL = DatasetLoader(dataset=dataset,

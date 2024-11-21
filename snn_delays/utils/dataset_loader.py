@@ -128,6 +128,8 @@ class DatasetLoader:
 
         if 'crop_to' in kwargs:
             self.dataset_dict['time_ms'] = kwargs['crop_to']/1000
+        elif 'random_crop_to' in kwargs:
+            self.dataset_dict['time_ms'] = kwargs['random_crop_to'][-1]/1000
         else:
             self.dataset_dict['time_ms'] = False
 

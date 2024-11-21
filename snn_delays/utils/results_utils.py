@@ -39,7 +39,7 @@ def get_param_count(snn):
 
     return params, effective_params
 
-def get_results(ckpt_dir, sweep_params_names, rpts=3, mode='max'):
+def get_results(ckpt_dir, sweep_params_names, rpts=3, mode='max', ablation_name=''):
 
     '''
     rpts: number of repetitions of the experiment
@@ -76,7 +76,7 @@ def get_results(ckpt_dir, sweep_params_names, rpts=3, mode='max'):
         for rpt in range(num_rpts): 
             
             # Load model with maximum acc
-            reference = f'{model_config}_rpt{rpt}' if type(rpts)==int else f'{model_config}'
+            reference = f'´{ablation_name}{model_config}_rpt{rpt}' if type(rpts)==int else f'{model_config}'
             model_loaded_flag = False
             for model_name in models:
                 if reference in model_name and mode in model_name:

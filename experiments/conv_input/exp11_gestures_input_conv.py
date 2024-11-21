@@ -1,6 +1,6 @@
 import torch
 import time
-from snn_delays.snn_conv_input import SNN
+from experiments.conv_input.snn_conv_input import SNN
 from snn_delays.utils.dataset_loader import DatasetLoader
 from snn_delays.utils.train_utils import train, get_device
 from snn_delays.utils.test_behavior import tb_save_max_last_acc
