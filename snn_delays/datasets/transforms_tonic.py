@@ -50,15 +50,19 @@ class CropTimeRandom:
         #self.max = np.random.randint(200000, 1.5e6)
         # self.max = np.random.choice([100000, 1e6])
 
-        #start =  int(1e4*np.random.rand())
-        start = np.random.randint(0, self.max_start)
-        end = start + self.duration
+        # wait for at least one event to be generated
+        while True:
+            #start =  int(1e4*np.random.rand())
+            start = np.random.randint(0, self.max_start)
+            end = start + self.duration
 
-        #print(start)
+            #print(start)
 
-        assert "t" in events.dtype.names
-        # if self.max is None:
-        #     self.max = np.max(events["t"])
-        #return events[(events["t"] >= self.min) & (events["t"] <= self.max)]
-        #return events[(events["t"] >= start) & (events["t"] <= start+duration)]
-        return events[(events["t"] >= start) & (events["t"] <= end)]
+            assert "t" in events.dtype.names
+            # if self.max is None:
+            #     self.max = np.max(events["t"])
+            #return events[(events["t"] >= self.min) & (events["t"] <= self.max)]
+            #return events[(events["t"] >= start) & (events["t"] <= start+duration)]
+            evs = events[(events["t"] >= start) & (events["t"] <= end)]
+            if len(evs)>0:
+                return evs

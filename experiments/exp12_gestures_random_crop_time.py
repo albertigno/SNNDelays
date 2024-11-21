@@ -19,6 +19,8 @@ batch_size = 128
 
 rpts = 3
 
+# tried 1e5 but sometimes there are no spikes...
+
 for rcrop in [1e5, 7e5, 3e6]:
 
     # DATASET
