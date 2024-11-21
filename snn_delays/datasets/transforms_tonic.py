@@ -54,7 +54,7 @@ class CropTimeRandom:
         start = np.random.randint(0, self.max_start)
         end = start + self.duration
 
-        print(start)
+        #print(start)
 
         assert "t" in events.dtype.names
         # if self.max is None:
