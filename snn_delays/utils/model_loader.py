@@ -47,8 +47,12 @@ class ModelLoader:
             kwargs['dataset_dict'] = cls.__get_dict_old_way(cls, d)
             print(kwargs)
 
+        if 'mask' in kwargs.keys():
+            del kwargs['mask']
+
         snn = params['type']
         snn = snn(**kwargs)
+        snn.set_network()
         snn.to(device)
         snn.load_state_dict(params['net'], strict= False) # be careful with this
         snn.epoch = params['epoch']

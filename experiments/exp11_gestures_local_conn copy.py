@@ -1,6 +1,6 @@
 import torch
 import time
-from snn_delays.snn import SNN
+from snn_delays.experimental_models.snn_mask import Masked_SNN
 from snn_delays.utils.dataset_loader import DatasetLoader
 from snn_delays.utils.train_utils import train, get_device
 from snn_delays.utils.test_behavior import tb_save_max_last_acc
@@ -49,10 +49,12 @@ mask = create_local_connection_mask(input_size, kernel_size, stride, channels)
 
 print(mask.shape)
 
-snn = SNN(dataset_dict=dataset_dict, structure=(256, 4), connection_type='f',
+snn = Masked_SNN(dataset_dict=dataset_dict, structure=(256, 4), connection_type='f',
     delay=delay, delay_type='h', tau_m = tau_m,
     win=total_time, loss_fn='mem_sum', batch_size=batch_size, device=device,
     debug=False, mask=mask)
+
+snn.set_network()
 
 snn.input2spike_th = None 
 

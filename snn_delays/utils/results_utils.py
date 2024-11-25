@@ -7,7 +7,6 @@ from snn_delays.utils.train_utils import get_device
 from snn_delays.utils.hw_aware_utils import prune_weights
 from IPython.display import clear_output
 device = get_device()
-batch_size = 256
 import os
 import itertools
 import numpy as np
@@ -46,6 +45,8 @@ def get_results(ckpt_dir, sweep_params_names, rpts=3, mode='max', ablation_name=
     mode: 'max' (best accuracy regardless of epoch) or 'last' (final accuracy)
     '''
 
+    batch_size=64
+
     models_dir = os.path.join(RESULTS_PATH, ckpt_dir)
     ### MODELS
     models = []
@@ -76,7 +77,7 @@ def get_results(ckpt_dir, sweep_params_names, rpts=3, mode='max', ablation_name=
         for rpt in range(num_rpts): 
             
             # Load model with maximum acc
-            reference = f'´{ablation_name}{model_config}_rpt{rpt}' if type(rpts)==int else f'{model_config}'
+            reference = f'{ablation_name}{model_config}_rpt{rpt}' if type(rpts)==int else f'{model_config}'
             model_loaded_flag = False
             for model_name in models:
                 if reference in model_name and mode in model_name:
@@ -111,6 +112,66 @@ def get_results(ckpt_dir, sweep_params_names, rpts=3, mode='max', ablation_name=
                 test_loss[model_config].append(snn.test_loss)
 
     results = (acc, spk, spk_t, train_loss, test_loss, num_params, num_eff_params)
+
+    return results
+
+
+def get_states(ckpt_dir, sweep_params_names, rpts=3, mode='max', ablation_name='', loader=None, batch_size=None):
+
+    models_dir = os.path.join(RESULTS_PATH, ckpt_dir)
+    ### MODELS
+    models = []
+    for _, __, files in os.walk(models_dir, topdown=False):
+        for name in files:
+            if '.py' not in name:
+                models.append(name)
+
+    mem_states = dict()
+    spike_states = dict()
+    refs = dict()
+    preds = dict()
+
+    configurations_names = list(itertools.product(*sweep_params_names.values()))
+
+    if type(rpts)==int:
+        num_rpts = rpts
+    else:
+        num_rpts = 1
+
+    for name in configurations_names:
+        model_config = '_'.join(list(name))
+
+        for rpt in range(num_rpts): 
+            
+            # Load model with maximum acc
+            reference = f'{ablation_name}{model_config}_rpt{rpt}' if type(rpts)==int else f'{model_config}'
+            model_loaded_flag = False
+            for model_name in models:
+                if reference in model_name and mode in model_name:
+                    print(model_name)
+                    snn = ModelLoader(
+                        model_name, models_dir, batch_size, device, True)
+                    clear_output(wait=True)
+                    model_loaded_flag = True
+
+            if not(model_loaded_flag):
+                    raise FileNotFoundError(f'model with reference {reference} not found')
+            
+            snn.debug = True
+            ref, pred = snn.test(loader, only_one_batch=True)
+            
+            if f'{model_config}' not in spike_states.keys():
+                spike_states[model_config] = snn.spike_state
+                mem_states[model_config] = snn.mem_state
+                refs[model_config] = ref
+                preds[model_config] = pred
+            else:
+                spike_states[model_config].append(snn.spike_state)
+                mem_states[model_config].append(snn.mem_state)
+                refs[model_config].append(ref)
+                preds[model_config].append(pred)
+
+    results = (spike_states, mem_states, refs, preds)
 
     return results
 

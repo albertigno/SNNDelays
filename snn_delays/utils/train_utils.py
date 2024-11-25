@@ -236,7 +236,10 @@ def copy_snn(snn, new_batch_size=None):
     snn_type = type(snn)
     kwargs['batch_size'] = new_batch_size
     snn_copy = snn_type(**kwargs)
+    snn_copy.set_network()
     snn_copy.load_state_dict(snn.state_dict())
+
+    snn.to('cuda') ###fix this!
 
     stored_grads = get_gradients(snn)
 
@@ -246,6 +249,17 @@ def copy_snn(snn, new_batch_size=None):
             param.grad = stored_grads[name].clone()
 
     return snn_copy
+
+def transfer_weights_taus(source_snn, target_snn):
+
+    weight_taus = [(name, w) for name, w  in target_snn.named_parameters() if 's' not in name]
+
+    for (name_src, param_src), (name_dst, param_dst) in zip(source_snn.named_parameters(), weight_taus):
+        assert name_src == name_dst, f"Parameter mismatch: {name_src} != {name_dst}"
+        param_dst.data.copy_(param_src.data)
+
+    return target_snn
+
 
 def get_gradients(snn):
         # Store gradients before optimizer step

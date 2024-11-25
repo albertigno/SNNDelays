@@ -1,4 +1,4 @@
-from snn_delays.utils.dataset_loader import DatasetLoader
+from snn_delays.config import CHECKPOINT_PATH, DATASET_PATH
 import os
 import torch
 import torch.nn as nn
@@ -6,24 +6,8 @@ import torch.nn.functional as F
 import torch.cuda.amp as amp
 import sys
 import json
-import math 
 import numpy as np
 
-DatasetLoader
-
-'''
-full model as for 20/06/24 (develop)
-with recurrency, delays, training and inference,
-only fast_sigmoid act_fun 
-only classification loss_fn
-no experimental features: wta, conv and truncated
-'''
-
-CHECKPOINT_PATH = os.path.join(
-    os.environ.get('SNN_DATA_PATH'), 'Checkpoints')
-
-DATASET_PATH = os.path.join(
-    os.environ.get('SNN_DATA_PATH'), 'Datasets')
 
 class ActFunBase(torch.autograd.Function):
     """
@@ -259,7 +243,7 @@ class Training:
         self.train_loss.append([self.epoch, total_loss_train / num_iter])
 
 
-    def test(self, test_loader=None, dropout=0.0):
+    def test(self, test_loader=None, dropout=0.0, only_one_batch=False):
         """
         Function to run a test of the neural network over all the samples in
         test dataset
@@ -332,13 +316,16 @@ class Training:
             total_loss_test += loss.detach().item()
             total_spk_count += spk_count.detach()
 
+            if only_one_batch:
+                break
+
         # Calculate accuracy
         acc = 100. * float(correct) / float(total)
 
         # update accuracy history
         if self.acc[-1][0] <= self.epoch:
             self.acc.append([self.epoch, acc])
-            self.test_loss.append([self.epoch, total_loss_test / (i+0)])
+            self.test_loss.append([self.epoch, total_loss_test / (i+1)])
             self.test_spk_count.append([self.epoch, total_spk_count.detach().item() / total])
             # quitar penultimo acc, test_loss si coinciden las epocas o si se entrena por primera vez  
             if self.acc[-2][0] == self.epoch or self.acc[-2][1] == None:
@@ -349,7 +336,7 @@ class Training:
         spk_count_layer_neuron = list((total_spk_count_per_layer/ total))
 
         # Print information about test
-        print('Test Loss: {}'.format(total_loss_test / (i+0)))
+        print('Test Loss: {}'.format(total_loss_test / (i+1)))
         print('Avg spk_count per neuron for all {} time-steps {}'.format(
             self.win, total_spk_count / total))
         print('Avg spk per neuron per layer {}'.format(spk_count_layer_neuron))
@@ -357,51 +344,6 @@ class Training:
         print('', flush=True)
 
         return all_refs, all_preds
-
-    # def lr_scheduler(self, optimizer, lr_decay_epoch=1, lr_decay=0.98):
-    #     """
-    #     Function to decay learning rate by a factor of lr_decay every
-    #     lr_decay_epoch epochs
-
-    #     :param optimizer: Optimizer used during training
-    #     :param lr_decay_epoch: Number of epochs to update learning rate
-    #     (default = 1)
-    #     :param lr_decay: Factor to reduce learning rate (default = 0.98)
-    #     """
-
-    #     if self.epoch % lr_decay_epoch == 0 and self.epoch > 1:
-    #         for param_group in optimizer.param_groups:
-    #             param_group['lr'] = param_group['lr'] * lr_decay
-
-    #     return optimizer
-
-
-class MaskedLinear(nn.Module):
-    def __init__(self, in_features, out_features, mask):
-        super(MaskedLinear, self).__init__()
-        self.in_features = in_features
-        self.out_features = out_features
-        
-        # Define the linear layer with PyTorch's default initialization
-        self.linear = nn.Linear(in_features, out_features, bias=False)
-        
-        # Register the mask
-        self.register_buffer('mask', mask)
-        
-        # Apply the mask to the weights after initialization
-        with torch.no_grad():
-            ##### uncomment to enforce negative weights (self inhibition experiment)
-            # data = self.linear.weight.data
-            # self.linear.weight.data = -1.0*data*(data>0) + data*(data<0)
-            self.linear.weight *= self.mask
-    
-    def forward(self, x):
-        # Apply the mask during the forward pass to enforce connectivity
-
-        masked_weight = self.linear.weight * self.mask
-        return nn.functional.linear(x, masked_weight)
-
-
 
 class SNN(Training, nn.Module):
     """
@@ -412,7 +354,7 @@ class SNN(Training, nn.Module):
     """
 
     def __init__(self, dataset_dict, structure=(256, 2),
-                 connection_type='r', delay=None, mask=None, delay_type='ho',
+                 connection_type='r', delay=None, delay_type='ho',
                  reset_to_zero=True, tau_m='normal', win=50,
                  loss_fn='mem_sum',
                  batch_size=256, device='cuda', debug=False):
@@ -507,7 +449,7 @@ class SNN(Training, nn.Module):
         # By default, inputs are binarized according to this threshold (see
         # training/propagate). Set this to None if you want to allow floating
         # inputs
-        self.input2spike_th = 0.5
+        self.input2spike_th = None
 
         # Asserts to check input arguments
         assert 'num_training_samples' in dataset_dict and \
@@ -583,16 +525,8 @@ class SNN(Training, nn.Module):
         self.h_layers = None
         self.tau_m_h = None
 
-        if mask is not None:
-            self.register_buffer('mask', mask)
-        else:
-            self.mask = None
-
         # Set features of the network
         self.define_metaparameters()
-        self.set_layers()
-        self.set_tau_m()
-        self.set_layer_lists()
         self.define_model_name()
         self.to(self.device)
 
@@ -600,6 +534,17 @@ class SNN(Training, nn.Module):
         #self.use_amp = False
         self.use_amp = True # This only works in GPU
         self.scaler = amp.GradScaler()        
+
+    def set_network(self):
+        '''
+        Initially, this was done during the initialization, but in order to
+        add extra functionality which inherits from the base SNN and modifies
+        how layers are configured, etc, it is better to call this after the __init__
+        
+        '''
+        self.set_layers()
+        self.set_tau_m()
+        self.set_layer_lists()
 
 
 
@@ -703,10 +648,10 @@ class SNN(Training, nn.Module):
         dn = self.dataset_dict['dataset_name']
 
         self.model_name = \
-            '{}{}_{}_l{}_{}d{}.t7'.format(
+            '{}{}_l{}_{}d{}.t7'.format(
                 dn,
                 self.win,
-                str(type(self)).split('.')[2][:-2], #?¿
+#                str(type(self)).split('.')[2][:-2], #?¿
                 self.num_layers,
                 self.delay[0],
                 self.delay[1])
@@ -725,12 +670,8 @@ class SNN(Training, nn.Module):
 
         # if delays is None, len(self.delays) = 1
 
-        if self.mask is not None:
-            setattr(self, 'f0_f1', MaskedLinear(self.num_input*len(self.delays_i),
-                                        num_first_layer, mask=self.mask))               
-        else:
-            setattr(self, 'f0_f1', nn.Linear(self.num_input*len(self.delays_i),
-                                        num_first_layer, bias=False))            
+        setattr(self, 'f0_f1', nn.Linear(self.num_input*len(self.delays_i),
+                                    num_first_layer, bias=False))            
 
         # Set linear layers dynamically for the l hidden layers
         for lay_name_1, lay_name_2, num_pre, num_pos in zip(self.layer_names[:-1],
