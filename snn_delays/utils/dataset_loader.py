@@ -3,7 +3,6 @@ from tonic import DiskCachedDataset, MemoryCachedDataset
 import os
 from snn_delays.config import DATASET_PATH
 
-
 class DatasetLoader:
     """
     Dataset Loader class

@@ -37,7 +37,7 @@ class Masked_SNN(SNN):
     """
 
     def __init__(self, dataset_dict, structure=(256, 2),
-                 connection_type='r', delay=None, mask=None, delay_type='ho',
+                 connection_type='r', delay=None, mask=None, mask_type='r', delay_type='ho',
                  reset_to_zero=True, tau_m='normal', win=50,
                  loss_fn='mem_sum',
                  batch_size=256, device='cuda', debug=False):
@@ -69,6 +69,8 @@ class Masked_SNN(SNN):
         else:
             self.mask = None        
         
+        self.mast_type = mask_type
+
         self.set_layers()
 
     def set_layers(self):
@@ -85,7 +87,7 @@ class Masked_SNN(SNN):
 
         # if delays is None, len(self.delays) = 1
 
-        if self.mask is not None:
+        if self.mask is not None and self.mast_type=='i':
             setattr(self, 'f0_f1', MaskedLinear(self.num_input*len(self.delays_i),
                                         num_first_layer, mask=self.mask))               
         else:
@@ -99,14 +101,14 @@ class Masked_SNN(SNN):
             # This only if connection is recurrent
             if self.connection_type == 'r':
                 name = lay_name_1 + '_' + lay_name_1
-                # if self.mask is not None:
-                #     setattr(self, name, MaskedLinear(
-                #         num_pre* len(self.delays_h), num_pre, mask=self.mask))
-                # else:
-                #     setattr(self, name, nn.Linear(
-                #         num_pre* len(self.delays_h), num_pre, bias=bias))
-                setattr(self, name, nn.Linear(
-                    num_pre* len(self.delays_h), num_pre, bias=bias))
+                if self.mask is not None and self.mast_type=='r':
+                    setattr(self, name, MaskedLinear(
+                        num_pre* len(self.delays_h), num_pre, mask=self.mask))
+                else:
+                    setattr(self, name, nn.Linear(
+                        num_pre* len(self.delays_h), num_pre, bias=bias))
+                # setattr(self, name, nn.Linear(
+                #     num_pre* len(self.delays_h), num_pre, bias=bias))
                 
                 self.proj_names.append(name)
 

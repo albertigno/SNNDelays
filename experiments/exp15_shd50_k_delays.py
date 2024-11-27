@@ -55,7 +55,6 @@ snn.model_name = 'DynamicPruning_' + snn.model_name
 
 #base_snn =  ModelLoader('r_nd_2l_ht_tt_rpt4_8193462897526501_max_45epoch','abl1_shd50', batch_size, device, False)
 
-
 snn.set_network()
 
 snn.to(device)

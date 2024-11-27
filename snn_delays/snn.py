@@ -545,8 +545,7 @@ class SNN(Training, nn.Module):
         self.set_layers()
         self.set_tau_m()
         self.set_layer_lists()
-
-
+        self.to(self.device)
 
     def define_metaparameters(self):
         """

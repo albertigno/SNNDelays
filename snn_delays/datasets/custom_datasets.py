@@ -6,6 +6,9 @@ import numpy as np
 from tonic.prototype.datasets.stmnist import STMNIST as ST_MNIST
 import os
 
+from itertools import product
+from torch.utils.data import Subset
+
 class CustomDataset(Dataset):
     """
     Dataloader for custom numpy or pytorch dataset.
@@ -96,3 +99,46 @@ class STMNIST(Dataset):
     
     def __len__(self):
         return int(6953*0.8) if self.split == 'train' else int(6953*0.2)
+    
+
+
+
+# Custom dataset for digit concatenation from a filtered dataset
+class ConcatenatedDataset(Dataset):
+    def __init__(self, base_dataset, sequence_length, target_classes):
+        self.base_dataset = base_dataset
+        indices = [i for i, (img, label) in enumerate(base_dataset) if np.argmax(label) in target_classes]
+        self.filtered_dataset = Subset(base_dataset, indices)
+        self.indices = list(range(len(self.filtered_dataset)))  # Indices of the base dataset
+        self.target_classes = target_classes
+        #self.pairs = [(i, j) for i in self.indices for j in self.indices]  # All possible pairs of indices
+        self.sequence_length = sequence_length
+        #self.pairs = list(product(self.indices, repeat=sequence_length))
+        self.num_classes = len(target_classes)
+        self.total_combinations = self.num_classes ** sequence_length
+
+    def __len__(self):
+        # Number of pairs
+        #return len(self.pairs)
+        return len(self.base_dataset)
+
+    def __getitem__(self, idx):
+        # Get the indices for the current pair
+        #indices = self.pairs[idx]
+        # Retrieve the images and labels from the base dataset
+        images = []
+        labels = []
+
+        for i in range(self.sequence_length):
+            img, label = self.filtered_dataset[np.random.choice(self.indices)]
+            images.append(img)
+            labels.append(self.target_classes.index(np.argmax(label)))
+        # Concatenate the images along the width (you can adjust as needed)
+        concatenated_img = np.concatenate(images, axis=0)
+        
+        # Concatenate the labels one-hot
+        encoded_label = sum(l * (self.num_classes ** i) for i, l in enumerate(reversed(labels)))
+        concatenated_label = np.zeros(self.total_combinations)
+        concatenated_label[encoded_label] = 1.0
+
+        return concatenated_img, concatenated_label
