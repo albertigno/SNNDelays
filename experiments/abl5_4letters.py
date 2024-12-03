@@ -39,7 +39,7 @@ cached_test_dataset = MemoryCachedDataset(test_dataset)
 
 total_time = train_data.shape[1]
 print(f'num timesteps per sample: {total_time}')
-batch_size = 128
+batch_size = 512
 
 train_loader = DataLoader(cached_train_dataset,
                             batch_size=batch_size,
@@ -67,7 +67,7 @@ model_params = {'dataset_dict': dataset_dict, 'delay_type':'h',
                  'loss_fn':'mem_sum', 'batch_size':batch_size, 'device':device,
                  'debug':False}
 
-ckpt_dir = 'abl1_shd50'
+ckpt_dir = 'abl5_4letters'
 
 train_params = {'learning_rate':1e-3, 'num_epochs':100, 'spk_reg':0.0, 'l1_reg':0.0,
           'dropout':0.0, 'lr_tau': 0.1, 'scheduler':(10, 0.95), 'ckpt_dir':ckpt_dir,
@@ -77,7 +77,7 @@ train_params = {'learning_rate':1e-3, 'num_epochs':100, 'spk_reg':0.0, 'l1_reg':
 #### first run (f+d)
 sweep_params = {
     'connection_type': ['f'],
-    'delay': [(total_time, total_time//3)],
+    'delay': [(total_time, total_time//3 + 1)],
     'structure':[(64,2)],
     'tau_m':[20.0, 'normal'],
     'T_freeze_taus':[True, None]
@@ -119,7 +119,7 @@ for cfg in cfgs:
         print(train_params)
 
         snn = SNN(**model_params)
-        snn.input2spike_th = None 
+        snn.set_network()
 
         snn.model_name = cfg['name'] + '_rpt' + str(repetition)
         snn.save_model(snn.model_name + "_initial", ckpt_dir)
@@ -172,6 +172,7 @@ for cfg in cfgs:
         print(train_params)
 
         snn = SNN(**model_params)
+        snn.set_network()
         snn.model_name = cfg['name'] + '_rpt' + str(repetition)
         snn.save_model(snn.model_name + "_initial", ckpt_dir)
 
@@ -223,6 +224,7 @@ for cfg in cfgs:
         print(train_params)
 
         snn = SNN(**model_params)
+        snn.set_network()
         snn.model_name = cfg['name'] + '_rpt' + str(repetition)
         snn.save_model(snn.model_name + "_initial", ckpt_dir)
 
