@@ -25,7 +25,10 @@ class CustomDataset(Dataset):
             "[ERROR] Data length must be equal to labels length."
 
         # Set attributes from input
-        self.images = data
+        if len(data.shape)==3:
+            self.images = np.expand_dims(data, axis=2)
+        else:
+            self.images = data
         # shape (num_samples, num_timesteps, num_input_neurons)
         self.labels = labels
         # shape (num_samples, num_output_neurons)
@@ -56,7 +59,7 @@ class CustomDataset(Dataset):
         correct initialization of the SNNs: num_training samples, num_input...
         All Dataset should have this, if possible.
         """
-        train_attrs = {'num_input': self.images.shape[2],
+        train_attrs = {'num_input': self.images.shape[3],
                        'num_training_samples': len(self),
                        'num_output': self.labels.shape[1]}
 
@@ -86,22 +89,28 @@ class STMNIST(Dataset):
         data = ST_MNIST(root=os.path.join(DATASET_PATH, 'raw_datasets'))
         self.train, self.test = data.random_split(total_length=6953, weights={"train": 0.8, "valid": 0.2}, seed=seed)
 
+        self.train_list = list(self.train)
+        self.test_list = list(self.test)
+
+
     def __getitem__(self, idx):
         '''
         as the train-test split is done with a fixed seed in tonic_datasets, no need to 
         '''
+        # if self.split == 'train':
+        #     event, label = next(iter(self.train))
+        # elif self.split == 'test':
+        #     event, label = next(iter(self.test))
         if self.split == 'train':
-            event, label = next(iter(self.train))
+            event, label = self.train_list[idx]
         elif self.split == 'test':
-            event, label = next(iter(self.test))
-        
+            event, label = self.test_list[idx]
+
         return self.transform(event), self.target_transform(label)
     
     def __len__(self):
         return int(6953*0.8) if self.split == 'train' else int(6953*0.2)
     
-
-
 
 # Custom dataset for digit concatenation from a filtered dataset
 class ConcatenatedDataset(Dataset):

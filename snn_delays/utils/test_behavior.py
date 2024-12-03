@@ -38,11 +38,11 @@ def tb_save_max_last_acc(snn, ckpt_dir, test_loader, dropout, test_every):
         snn.last_model_name = snn.model_name+'_'+ ''.join(str(np.array(snn.acc)[-1,1]).split('.')) + f'_last_{snn.epoch}epoch'
         snn.save_model(snn.last_model_name, ckpt_dir)
 
-        stored_grads = get_gradients(snn)
+        # stored_grads = get_gradients(snn)
 
-        for name, grad in stored_grads.items():
-            grad_norm = grad.norm().item()
-            print(f"Gradient norm for '{name}': {grad_norm:.4f}")
+        # for name, grad in stored_grads.items():
+        #     grad_norm = grad.norm().item()
+        #     print(f"Gradient norm for '{name}': {grad_norm:.4f}")
 
         if last_acc == max_acc:
             if snn.last_max_model_name is not None:
