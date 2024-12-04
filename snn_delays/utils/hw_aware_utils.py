@@ -5,9 +5,6 @@ import matplotlib.pyplot as plt
 import os
 from snn_delays.config import CHECKPOINT_PATH
 
-
-# TODO: ¿Qué hace esta funcion?
-#  Terminar documentacion y testar
 def modify_weights(layer, value, mode='mask', trainable=True):
     """
     Function to mask weights

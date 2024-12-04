@@ -445,6 +445,7 @@ class SNN(Training, nn.Module):
         self.surr = 'fs'
         self.surr_scale = torch.tensor([10.0], requires_grad=False,
                                          device=self.device)
+        self.bias = False
 
         # By default, inputs are binarized according to this threshold (see
         # training/propagate). Set this to None if you want to allow floating
@@ -663,14 +664,14 @@ class SNN(Training, nn.Module):
         """
 
         # Set bias
-        bias = False
+        bias = self.bias
 
         num_first_layer = self.num_neurons_list[0]
 
         # if delays is None, len(self.delays) = 1
 
         setattr(self, 'f0_f1', nn.Linear(self.num_input*len(self.delays_i),
-                                    num_first_layer, bias=False))            
+                                    num_first_layer, bias=bias))            
 
         # Set linear layers dynamically for the l hidden layers
         for lay_name_1, lay_name_2, num_pre, num_pos in zip(self.layer_names[:-1],
@@ -709,7 +710,7 @@ class SNN(Training, nn.Module):
         # output layer
         name = self.layer_names[-1]+'_o'
         setattr(self, name, nn.Linear(self.num_neurons_list[-1] * len(self.delays_o),
-                                    self.num_output, bias=False))
+                                    self.num_output, bias=bias ))
             
         self.proj_names.append(name)
 

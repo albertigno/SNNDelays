@@ -119,8 +119,7 @@ for cfg in cfgs:
         print(train_params)
 
         snn = SNN(**model_params)
-        snn.input2spike_th = None 
-
+        snn.set_network()
         snn.model_name = cfg['name'] + '_rpt' + str(repetition)
         snn.save_model(snn.model_name + "_initial", ckpt_dir)
 
@@ -172,6 +171,7 @@ for cfg in cfgs:
         print(train_params)
 
         snn = SNN(**model_params)
+        snn.set_network()
         snn.model_name = cfg['name'] + '_rpt' + str(repetition)
         snn.save_model(snn.model_name + "_initial", ckpt_dir)
 
@@ -223,6 +223,7 @@ for cfg in cfgs:
         print(train_params)
 
         snn = SNN(**model_params)
+        snn.set_network()
         snn.model_name = cfg['name'] + '_rpt' + str(repetition)
         snn.save_model(snn.model_name + "_initial", ckpt_dir)
 

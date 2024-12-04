@@ -65,8 +65,6 @@ snn.set_network()
 #base_snn =  ModelLoader('f_d_2l_ht_tt_rpt2_8529151943462898_max_42epoch','abl1_shd50', batch_size, device, False)
 base_snn =  ModelLoader('r_nd_2l_ht_tt_rpt4_8193462897526501_max_45epoch','abl1_shd50', batch_size, device, False)
 
-
-
 base_snn.to(device)
 base_snn.test(test_loader)
 

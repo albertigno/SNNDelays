@@ -1,7 +1,7 @@
 from torch.utils.data import DataLoader
 from tonic import DiskCachedDataset, MemoryCachedDataset
 import os
-from snn_delays.config import DATASET_PATH
+from snn_delays.config import DATASET_PATH, CACHE_PATH
 
 class DatasetLoader:
     """
@@ -148,12 +148,11 @@ class DatasetLoader:
         # Select caching option
         if caching == 'disk':
             train_cache_path = os.path.join(
-                DATASET_PATH, 'tonic_cache',
-                'fast_data_loading_{}_train{}'.format(dataset, total_time))
+                CACHE_PATH,
+                'cache_train_{}_{}'.format(dataset, total_time)+ '_'.join(str(value) for value in kwargs.values()))
             test_cache_path = os.path.join(
-                DATASET_PATH,
-                'tonic_cache',
-                'fast_data_loading_{}_test{}'.format(dataset, total_time))
+                CACHE_PATH,
+                'cache_test_{}_{}_'.format(dataset, total_time)+'_'.join(str(value) for value in kwargs.values()))
 
             train_dataset = DiskCachedDataset(train_dataset,
                                               cache_path=train_cache_path)

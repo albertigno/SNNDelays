@@ -32,6 +32,7 @@ def train(snn, train_loader, test_loader, learning_rate, num_epochs, spk_reg=0.0
 
     tau_m_params = [param for name, param in snn.named_parameters() if 'tau' in name]
     weight_params = [param for name, param in snn.named_parameters() if 'f' in name]
+    th_params = [param for name, param in snn.named_parameters() if 'th' in name]
     #binary_scale_params = [param for name, param in snn.named_parameters() if 's' in name]
 
     if lsm:
@@ -45,7 +46,8 @@ def train(snn, train_loader, test_loader, learning_rate, num_epochs, spk_reg=0.0
     else:
         optimizer = torch.optim.Adam([
             {'params': weight_params},
-            {'params': tau_m_params, 'lr': lr_tau}],
+            {'params': tau_m_params, 'lr': lr_tau},
+            {'params': th_params, 'lr': 0.0}],
             lr=learning_rate, eps=1e-5)
         
     step_size, gamma = scheduler[0], scheduler[1]
