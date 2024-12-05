@@ -96,7 +96,8 @@ target_classes = [1, 3, 8]
 test_dataset = DL._dataset.test_dataset
 train_dataset = DL._dataset.train_dataset
 
-for sequence_length in [5, 10, 20]:
+#for sequence_length in [5, 10, 20]:
+for sequence_length in [10, 20]: # drago
 
     conc_test_dataset = SequentialMemoryRetrievalDataset(test_dataset, sequence_length, target_classes)
     conc_train_dataset = SequentialMemoryRetrievalDataset(train_dataset, sequence_length, target_classes)

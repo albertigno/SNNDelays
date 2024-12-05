@@ -56,7 +56,7 @@ test_loader = DataLoader(cached_test_dataset,
                             num_workers=0)
 
 dataset_dict["time_ms"] = 1e3
-dataset_dict["dataset_name"] = "3letters"
+dataset_dict["dataset_name"] = "4letters"
 
 print(dataset_dict)
 
