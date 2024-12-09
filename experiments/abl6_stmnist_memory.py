@@ -80,7 +80,8 @@ device = get_device()
 torch.manual_seed(10)
 
 dataset = 'stmnist'
-total_time = 5
+#total_time = 5
+total_time = 3
 batch_size = 128
 
 # DATASET
@@ -96,8 +97,8 @@ target_classes = [1, 3, 8]
 test_dataset = DL._dataset.test_dataset
 train_dataset = DL._dataset.train_dataset
 
-#for sequence_length in [5, 10, 20]:
-for sequence_length in [10, 20]: # drago
+#for sequence_length in [5, 10 ]: # CSIC- time window 5
+for sequence_length in [20]: # CSIC - time window 3
 
     conc_test_dataset = SequentialMemoryRetrievalDataset(test_dataset, sequence_length, target_classes)
     conc_train_dataset = SequentialMemoryRetrievalDataset(train_dataset, sequence_length, target_classes)
