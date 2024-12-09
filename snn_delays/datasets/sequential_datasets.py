@@ -60,11 +60,11 @@ class SequentialPMNIST(Dataset):
         # Define data path
         if downsample:
             data_path = os.path.join(
-                DATASET_PATH, 'raw_datasets', 'PSMNIST', 'data_downsampled.h5')
+                DATASET_PATH, 'PSMNIST', 'data_downsampled.h5')
         else:
         # this must be created beforehand (see create_dataset in exp_psmnist)
             data_path = os.path.join(
-                DATASET_PATH, 'raw_datasets', 'PSMNIST', 'data.h5')
+                DATASET_PATH, 'PSMNIST', 'data.h5')
 
         hf = h5py.File(data_path, 'r')
 

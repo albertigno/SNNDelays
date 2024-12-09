@@ -86,7 +86,7 @@ class STMNIST(Dataset):
         self.split = split
         #root = os.path.join(r'C:\Users\Alberto\OneDrive - UNIVERSIDAD DE SEVILLA\PythonData\Datasets\raw_datasets')
 
-        data = ST_MNIST(root=os.path.join(DATASET_PATH, 'raw_datasets'))
+        data = ST_MNIST(root=DATASET_PATH)
         self.train, self.test = data.random_split(total_length=6953, weights={"train": 0.8, "valid": 0.2}, seed=seed)
 
         self.train_list = list(self.train)

@@ -33,7 +33,7 @@ class TonicDataset:
 
     Defines the common attributes and methods for all tonic datasets.
     """
-    PATH = os.path.join(DATASET_PATH, 'raw_datasets')
+    PATH = DATASET_PATH
 
     def __init__(self, dataset_name, total_time, sensor_size_to=None,
                  crop_to=None, one_polarity=False, merge_polarity=False, 

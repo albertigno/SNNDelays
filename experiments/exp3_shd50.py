@@ -41,7 +41,7 @@ snn = SNN(dataset_dict=dataset_dict, structure=(64, 2), connection_type='f',
     delay=delay, delay_type='h', tau_m = tau_m,
     win=total_time, loss_fn='mem_sum', batch_size=batch_size, device=device,
     debug=False)
-snn.input2spike_th = None 
+snn.set_network()
 
 snn.to(device)
 train(snn, train_loader, test_loader, lr, num_epochs, dropout=0.0, 
