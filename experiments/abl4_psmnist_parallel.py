@@ -7,30 +7,31 @@ import multiprocessing
 
 '''
 demonstration of parallel ablation.
-serial: 200MB 6'30 min (caching: ram) aprox 260 mins in total
-serial: 1.4GB 5'30 min (caching: gpu ram) aprox 220 min in total
-parallel (1 rpt): 1.7GB: 160 minutes total (caching: ram)
-parallel (1 rpt): 3.9GB: ?? minutes total (caching: gpu ram)
+serial: 200MB
+parallel (1 rpt): 1.7GB: 160 minutes total
 parallel (2 rps): 3.2GB: 165 minutes total (num_workers=0)
+parallel (2 rps): 3.2GB:  minutes total (num_workers=2)
 '''
 
 device = get_device()
 torch.manual_seed(10)
 
-dataset = 'shd'
-total_time = 50
-batch_size = 1024
+dataset = 'psmnist'
+total_time = 196
+batch_size = 256
 
 # DATASET
 DL = DatasetLoader(dataset=dataset,
-                   caching='gpu',
-                   num_workers=0,
+                   caching=None,
+                   num_workers=4,
                    batch_size=batch_size,
-                   total_time=total_time,
-                   crop_to=1e6)
+                   downsample=True)
+
 train_loader, test_loader, dataset_dict = DL.get_dataloaders()
 
 ### fixed params
+
+dataset_dict["time_ms"] = 1e3
 
 model_params = {'dataset_dict': dataset_dict, 'delay_type':'h',
                  'reset_to_zero':True, 'win':total_time,
@@ -94,30 +95,30 @@ def train_model(cfg_id, repetition):
     snn.save_model(snn.model_name + "_initial", ckpt_dir)
     train(snn, train_loader, test_loader, **train_params)
 
-## SERIAL TRAINING
-num_repetitions = 1
-for repetition in range(0, num_repetitions):
-    for cfg_id in range(len(cfgs)):
-        train_model(cfg_id, repetition)
+# ## SERIAL TRAINING
+# num_repetitions = 1
+# for repetition in range(0, num_repetitions):
+#     for cfg_id in range(len(cfgs)):
+#         train_model(cfg_id, repetition)
 
-# # # Main function to manage parallel processes
-# if __name__ == "__main__":
+# Main function to manage parallel processes
+if __name__ == "__main__":
 
-#     num_repetitions = 1
-#     repetitions = range(num_repetitions)
-#     cfg_ids = range(len(cfgs))
-#     configs = list(itertools.product(cfg_ids, repetitions))
+    num_repetitions = 1
+    repetitions = range(num_repetitions)
+    cfg_ids = range(len(cfgs))
+    configs = list(itertools.product(cfg_ids, repetitions))
 
-#     # Create and start processes
-#     processes = []
+    # Create and start processes
+    processes = []
 
-#     for cfg_id, repetition in configs:
-#         process = multiprocessing.Process(target=train_model, args=(cfg_id,repetition))
-#         processes.append(process)
-#         process.start()
+    for cfg_id, repetition in configs:
+        process = multiprocessing.Process(target=train_model, args=(cfg_id,repetition))
+        processes.append(process)
+        process.start()
 
-#     # Wait for all processes to finish
-#     for process in processes:
-#         process.join()
+    # Wait for all processes to finish
+    for process in processes:
+        process.join()
 
-#     print(f"All training runs completed for rpt {repetition+1}/{num_repetitions}! ")
+    print(f"All training runs completed for rpt {repetition+1}/{num_repetitions}! ")

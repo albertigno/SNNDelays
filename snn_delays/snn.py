@@ -99,12 +99,14 @@ class Training:
             images = images > self.input2spike_th
 
         # handle incomplete last batch for reproducible tests
+        labels = labels.to(self.device)
         if len(labels)<self.batch_size:
-            padding_lb = torch.zeros((self.batch_size - len(labels),) + labels.shape[1:])
+            padding_lb = torch.zeros((self.batch_size - len(labels),) + labels.shape[1:]).to(self.device)
             labels = torch.cat([labels, padding_lb], dim=0)
 
+        images = images.to(self.device)
         if len(images)<self.batch_size:
-            padding_im = torch.zeros((self.batch_size - len(images),) + images.shape[1:])
+            padding_im = torch.zeros((self.batch_size - len(images),) + images.shape[1:]).to(self.device)
             images = torch.cat([images, padding_im], dim=0)
 
         if self.use_amp:

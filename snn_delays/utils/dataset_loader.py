@@ -1,7 +1,10 @@
 from torch.utils.data import DataLoader
-from tonic import DiskCachedDataset, MemoryCachedDataset
+from tonic import DiskCachedDataset
+from snn_delays.utils.memory_cached_dataset import MemoryCachedDataset
 import os
 from snn_delays.config import DATASET_PATH, CACHE_PATH
+import numpy as np
+import torch
 
 class DatasetLoader:
     """
@@ -145,6 +148,11 @@ class DatasetLoader:
         self.train_dataset = train_dataset
         self.test_dataset = test_dataset
 
+        print(type(test_dataset.data))
+
+        # pin memory if caching is not GPU
+        pin_memory = True
+
         # Select caching option
         if caching == 'disk':
             train_cache_path = os.path.join(
@@ -158,24 +166,29 @@ class DatasetLoader:
                                               cache_path=train_cache_path)
             test_dataset = DiskCachedDataset(test_dataset,
                                              cache_path=test_cache_path)
-
         elif caching == 'memory':
             train_dataset = MemoryCachedDataset(train_dataset)
             test_dataset = MemoryCachedDataset(test_dataset)
+        elif caching == 'gpu':
+            train_dataset = MemoryCachedDataset(train_dataset, device="cuda:0")
+            test_dataset = MemoryCachedDataset(test_dataset, device="cuda:0")
+            pin_memory = False
+        else:
+            pass
 
         # Define train and test loader using DataLoader from torch
         self.train_loader = DataLoader(train_dataset,
                                        batch_size=batch_size,
                                        shuffle=True,
                                        drop_last=False,
-                                       pin_memory=True,
+                                       pin_memory=pin_memory,
                                        num_workers=num_workers)
 
         self.test_loader = DataLoader(test_dataset,
                                       batch_size=batch_size,
                                       shuffle=True,
                                       drop_last=False,
-                                      pin_memory=True,
+                                      pin_memory=pin_memory,
                                       num_workers=num_workers)
 
     def change_total_time(self, time):
