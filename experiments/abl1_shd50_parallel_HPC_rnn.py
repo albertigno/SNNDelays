@@ -15,7 +15,6 @@ parallel (2 rps): 3.2GB: 165 minutes total (num_workers=0)
 '''
 
 device = get_device()
-torch.manual_seed(10)
 
 dataset = 'shd'
 total_time = 50
@@ -106,7 +105,7 @@ if __name__ == "__main__":
     multiprocessing.set_start_method("spawn")
 
 
-    num_repetitions = 8
+    num_repetitions = 10
     repetitions = range(num_repetitions)
     cfg_ids = range(len(cfgs))
     #configs = list(itertools.product(cfg_ids, repetitions))

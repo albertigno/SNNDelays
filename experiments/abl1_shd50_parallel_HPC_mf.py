@@ -15,7 +15,6 @@ parallel (2 rps): 3.2GB: 165 minutes total (num_workers=0)
 '''
 
 device = get_device()
-torch.manual_seed(10)
 
 dataset = 'shd'
 total_time = 50
