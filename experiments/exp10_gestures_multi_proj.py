@@ -28,18 +28,23 @@ DL = DatasetLoader(dataset=dataset,
                    sensor_size_to=64,
                    crop_to=1e6)
 train_loader, test_loader, dataset_dict = DL.get_dataloaders()
-          
+
+tau_m = 'normal'
+ckpt_dir = 'exp10_gestures' 
+structure = (64, 2)
+
 num_epochs = 100
 
 lr = 1e-3
 # SNN CON DELAYS
 taimu1 = time.time()
 
-tau_m = 'normal'
-ckpt_dir = 'exp10_gestures' 
-structure = (64, 2)
+
+########################3
 
 config = 'd_top3_gradual'
+
+########################3
 
 if config == 'mf':
     connection_type = config
@@ -107,7 +112,7 @@ if 'top' in config:
         for n_delays in range(60,2, -1):
             p_snn.f1_f2.top_k = n_delays
             print("pruned to: " + str(n_delays))
-            train(p_snn, train_loader, test_loader, lr, 1, dropout=0.0, 
+            train(p_snn, train_loader, test_loader, lr, 5, dropout=0.0, 
                 test_behavior=tb_save_max_last_acc, ckpt_dir=ckpt_dir, scheduler=(10, 0.95), test_every=1)
-        train(p_snn, train_loader, test_loader, lr, 10, dropout=0.0, 
+        train(p_snn, train_loader, test_loader, lr, 50, dropout=0.0, 
                 test_behavior=tb_save_max_last_acc, ckpt_dir=ckpt_dir, scheduler=(10, 0.95), test_every=1)

@@ -37,7 +37,7 @@ model_params = {'dataset_dict': dataset_dict, 'delay_type':'h',
                  'loss_fn':'mem_sum', 'batch_size':batch_size, 'device':device,
                  'debug':False}
 
-ckpt_dir = 'abl1_shd50__mf_parallel'
+ckpt_dir = 'abl1_shd50_rnn'
 
 train_params = {'learning_rate':1e-3, 'num_epochs':10, 'spk_reg':0.0, 'l1_reg':0.0,
           'dropout':0.0, 'lr_tau': 0.1, 'scheduler':(10, 0.95), 'ckpt_dir':ckpt_dir,
@@ -46,16 +46,16 @@ train_params = {'learning_rate':1e-3, 'num_epochs':10, 'spk_reg':0.0, 'l1_reg':0
 
 #### first run (f+d)
 sweep_params = {
-    'connection_type': ['f'],
-    'delay': [(48, 16)],
+    'connection_type': ['r'],
+    'delay': [None],
     'structure':[(64,2)],
     'tau_m':[20.0, 'normal'],
     'T_freeze_taus':[True, None]
     }
 
 sweep_params_names = {
-    'connection_type': ['f'],
-    'delay': ['d'],
+    'connection_type': ['r'],
+    'delay': ['nd'],
     'structure':['2l'],
     'tau_m':['hm', 'ht'],
     'T_freeze_taus':['ft', 'tt']
