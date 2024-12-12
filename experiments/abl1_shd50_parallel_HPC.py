@@ -37,9 +37,9 @@ model_params = {'dataset_dict': dataset_dict, 'delay_type':'h',
                  'loss_fn':'mem_sum', 'batch_size':batch_size, 'device':device,
                  'debug':False}
 
-ckpt_dir = 'abl1_shd50_parallel'
+ckpt_dir = 'abl1_shd50__mf_parallel'
 
-train_params = {'learning_rate':1e-3, 'num_epochs':100, 'spk_reg':0.0, 'l1_reg':0.0,
+train_params = {'learning_rate':1e-3, 'num_epochs':10, 'spk_reg':0.0, 'l1_reg':0.0,
           'dropout':0.0, 'lr_tau': 0.1, 'scheduler':(10, 0.95), 'ckpt_dir':ckpt_dir,
           'test_behavior':tb_save_max_last_acc, 'test_every':1, 'delay_pruning':None, 'weight_pruning':None,
           'lsm':False, 'random_delay_pruning' : None, 'weight_quantization': None, 'k':None, 'depth': None, 'verbose':False}
@@ -94,32 +94,35 @@ def train_model(cfg_id, repetition):
     snn.save_model(snn.model_name + "_initial", ckpt_dir)
     train(snn, train_loader, test_loader, **train_params)
 
-## SERIAL TRAINING
-num_repetitions = 1
-for repetition in range(0, num_repetitions):
-    for cfg_id in range(len(cfgs)):
-        train_model(cfg_id, repetition)
+# ## SERIAL TRAINING
+# num_repetitions = 1
+# for repetition in range(0, num_repetitions):
+#     for cfg_id in range(len(cfgs)):
+#         train_model(cfg_id, repetition)
 
-# # # Main function to manage parallel processes
-# if __name__ == "__main__":
+# # Main function to manage parallel processes
+if __name__ == "__main__":
 
-#     multiprocessing.set_start_method("spawn")
+    multiprocessing.set_start_method("spawn")
 
-#     num_repetitions = 1
-#     repetitions = range(num_repetitions)
-#     cfg_ids = range(len(cfgs))
-#     configs = list(itertools.product(cfg_ids, repetitions))
 
-#     # Create and start processes
-#     processes = []
+    num_repetitions = 2
+    repetitions = range(num_repetitions)
+    cfg_ids = range(len(cfgs))
+    #configs = list(itertools.product(cfg_ids, repetitions))
 
-#     for cfg_id, repetition in configs:
-#         process = multiprocessing.Process(target=train_model, args=(cfg_id,repetition))
-#         processes.append(process)
-#         process.start()
+    for repetition in repetitions:
 
-#     # Wait for all processes to finish
-#     for process in processes:
-#         process.join()
+        # Create and start processes
+        processes = []
 
-#     print(f"All training runs completed for rpt {repetition+1}/{num_repetitions}! ")
+        for cfg_id in cfg_ids:
+            process = multiprocessing.Process(target=train_model, args=(cfg_id,repetition))
+            processes.append(process)
+            process.start()
+
+        # Wait for all processes to finish
+        for process in processes:
+            process.join()
+
+        print(f"All training runs completed for rpt {repetition+1}/{num_repetitions}! ")

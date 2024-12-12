@@ -448,6 +448,7 @@ class SNN(Training, nn.Module):
         self.surr_scale = torch.tensor([10.0], requires_grad=False,
                                          device=self.device)
         self.bias = False
+        self.multi_proj = None # must be defined externally for 'mf' connection type
 
         # By default, inputs are binarized according to this threshold (see
         # training/propagate). Set this to None if you want to allow floating
@@ -460,8 +461,8 @@ class SNN(Training, nn.Module):
             "[ERROR] Dataset dictionary don't have the right keys."
         assert type(structure) == tuple or type(structure) == list, \
             "[ERROR] The structure must be given with a list or a tuple."
-        assert connection_type == 'f' or connection_type == 'r', \
-            "[ERROR] The connection_type must take the values 'f' or 'r'."
+        assert connection_type == 'f' or connection_type == 'r' or connection_type == 'mf', \
+            "[ERROR] The connection_type must take the values 'f', 'r' or 'mf."
         assert delay is None or type(delay) == tuple, \
             "[ERROR] Delay must be a tuple or take the value None."
         assert reset_to_zero is True or reset_to_zero is False, \
@@ -580,6 +581,8 @@ class SNN(Training, nn.Module):
             self.update_mem_fn = self.update_mem
         elif self.connection_type == 'r':
             self.update_mem_fn = self.update_mem_rnn
+        elif self.connection_type == 'mf':
+            self.update_mem_fn = self.update_mem_multi_proj
 
         # Set alpha function (sigmoid or exponential) for update membrane
         # potential
@@ -698,8 +701,14 @@ class SNN(Training, nn.Module):
                 #     getattr(self, name).weight *= self.mask                
 
             # Normal layer
+
+            if self.connection_type == 'mf':
+                n_multi_proj = self.multi_proj
+            else:
+                n_multi_proj = len(self.delays_h)
+
             name = lay_name_1 + '_' + lay_name_2
-            setattr(self, name, nn.Linear(num_pre * len(self.delays_h),
+            setattr(self, name, nn.Linear(num_pre * n_multi_proj,
                                         num_pos, bias=bias))             
             self.proj_names.append(name)
 
@@ -891,7 +900,7 @@ class SNN(Training, nn.Module):
 
         # Calculate the new membrane potential and output spike
         mem = mem * alpha * (1 - o_spike) + self.h_layers[self.w_idx](i_spike)
-        
+
         # o_spike = self.act_fun(mem-thresh)
         # mem = mem*(mem < self.th_reset)    
 
@@ -900,6 +909,40 @@ class SNN(Training, nn.Module):
         self.w_idx = self.w_idx + 1
 
         return self.activation_function(mem, thresh)
+
+    # TODO: Set attributes tau_idx and w_idx
+    def update_mem_multi_proj(self, i_spike, o_spike, mem, thresh, _=None):
+
+        """
+        Function to update the membrane potential of the output layer. It takes
+        into account the spikes coming from the hidden layer.
+
+        :param i_spike: Input spike of the neuron.
+        :param o_spike: Output spike of the neuron.
+        :param mem: Membrane potential of the neuron.
+
+        :return: A tuple with the membrane potential and output spike updated.
+        """
+
+        # Set alpha value to membrane potential decay
+        alpha = self.alpha_fn(self.tau_m_h[self.tau_idx]).to(self.device)
+        #alpha = torch.exp(-1. / self.tau_m_h[self.tau_idx]).to(self.device)
+
+        # Calculate the new membrane potential and output spike
+        if self.w_idx == 0:
+            mem = mem * alpha * (1 - o_spike) + self.h_layers[self.w_idx](i_spike)
+        else:
+            mem = mem * alpha * (1 - o_spike) + self.h_layers[self.w_idx](i_spike.repeat(1, self.multi_proj))
+
+        # o_spike = self.act_fun(mem-thresh)
+        # mem = mem*(mem < self.th_reset)    
+
+        # Update attributes
+        self.tau_idx = self.tau_idx + 1
+        self.w_idx = self.w_idx + 1
+
+        return self.activation_function(mem, thresh)
+
 
     # TODO: Set attributes tau_idx and w_idx
     def update_mem_rnn(self, i_spike, o_spike, mem, thresh, extended_o_spikes):
