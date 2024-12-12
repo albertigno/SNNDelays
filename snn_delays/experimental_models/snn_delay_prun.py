@@ -40,6 +40,32 @@ class DelayMaskingLayer(nn.Module):
         # Apply projection to input
         return nn.functional.linear(x, masked_projection)
 
+class FixedMaskedLinear(nn.Module):
+    def __init__(self, in_features, out_features, mask):
+        super(FixedMaskedLinear, self).__init__()
+        self.in_features = in_features
+        self.out_features = out_features
+        
+        # Define the linear layer with PyTorch's default initialization
+        self.linear = nn.Linear(in_features, out_features, bias=False)
+        
+        # Register the mask
+        self.register_buffer('mask', mask)
+        
+        # Apply the mask to the weights after initialization
+        with torch.no_grad():
+            ##### uncomment to enforce negative weights (self inhibition experiment)
+            # data = self.linear.weight.data
+            # self.linear.weight.data = -1.0*data*(data>0) + data*(data<0)
+            self.linear.weight *= self.mask
+    
+    def forward(self, x):
+        # Apply the mask during the forward pass to enforce connectivity
+
+        masked_weight = self.linear.weight * self.mask
+        return nn.functional.linear(x, masked_weight)
+
+
 
 class FixedDelayMaskingLayer(nn.Module):
     def __init__(self, in_features, out_features, n_delays, top_k=3):
@@ -84,12 +110,17 @@ class P_DelaySNN(SNN):
     """
 
     def __init__(self, dataset_dict, structure=(256, 2),
-                 connection_type='r', delay=None, n_pruned_delays=1, delay_type='ho',
+                 connection_type='r', delay=None, n_pruned_delays=1,
+                 delay_mask = 'top_k',
+                 delay_type='h',
                  reset_to_zero=True, tau_m='normal', win=50,
                  loss_fn='mem_sum',
                  batch_size=256, device='cuda', debug=False):
         """
-        extra param: mask: a mask for the input layer
+        This only works for 'h' type delays
+        extra params: 
+            n_pruned_delays
+            delay_mask: 'top_k' or 'random'.
         """
 
         # Pass arguments to the parent class
@@ -112,6 +143,7 @@ class P_DelaySNN(SNN):
         self.kwargs = locals()
 
         self.n_pruned_delays = n_pruned_delays
+        self.delay_mask = delay_mask
         
         self.set_layers()
 
@@ -158,8 +190,14 @@ class P_DelaySNN(SNN):
             name = lay_name_1 + '_' + lay_name_2
             # setattr(self, name, nn.Linear(num_pre * len(self.delays_h),
             #                             num_pos, bias=bias))     
-            setattr(self, name, DelayMaskingLayer(num_pre * len(self.delays_h),
-                                        num_pos, len(self.delays_h), self.n_pruned_delays))  
+            if self.delay_mask == 'top_k':
+                setattr(self, name, DelayMaskingLayer(num_pre * len(self.delays_h),
+                                            num_pos, len(self.delays_h), self.n_pruned_delays)) 
+            elif self.delay_mask == 'random':
+                mask = torch.rand(num_pos, num_pre * len(self.delays_h)) < (self.n_pruned_delays / len(self.delays_h))
+                mask.to(self.device)
+                setattr(self, name, FixedMaskedLinear(num_pre * len(self.delays_h),
+                                            num_pos, mask))
             # setattr(self, name, FixedDelayMaskingLayer(num_pre * len(self.delays_h),
             #                             num_pos, len(self.delays_h), self.n_pruned_delays))
 
