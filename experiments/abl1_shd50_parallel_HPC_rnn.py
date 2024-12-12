@@ -39,7 +39,7 @@ model_params = {'dataset_dict': dataset_dict, 'delay_type':'h',
 
 ckpt_dir = 'abl1_shd50_rnn'
 
-train_params = {'learning_rate':1e-3, 'num_epochs':10, 'spk_reg':0.0, 'l1_reg':0.0,
+train_params = {'learning_rate':1e-3, 'num_epochs':100, 'spk_reg':0.0, 'l1_reg':0.0,
           'dropout':0.0, 'lr_tau': 0.1, 'scheduler':(10, 0.95), 'ckpt_dir':ckpt_dir,
           'test_behavior':tb_save_max_last_acc, 'test_every':1, 'delay_pruning':None, 'weight_pruning':None,
           'lsm':False, 'random_delay_pruning' : None, 'weight_quantization': None, 'k':None, 'depth': None, 'verbose':False}
