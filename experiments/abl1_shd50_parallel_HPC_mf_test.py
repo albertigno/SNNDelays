@@ -15,7 +15,6 @@ parallel (2 rps): 3.2GB: 165 minutes total (num_workers=0)
 '''
 
 device = get_device()
-torch.manual_seed(10)
 
 dataset = 'shd'
 total_time = 50
@@ -37,9 +36,9 @@ model_params = {'dataset_dict': dataset_dict, 'delay_type':'',
                  'loss_fn':'mem_sum', 'batch_size':batch_size, 'device':device,
                  'debug':False}
 
-ckpt_dir = 'abl1_shd50_mf'
+ckpt_dir = 'abl1_shd50_mf_test'
 
-train_params = {'learning_rate':1e-3, 'num_epochs':100, 'spk_reg':0.0, 'l1_reg':0.0,
+train_params = {'learning_rate':1e-3, 'num_epochs':10, 'spk_reg':0.0, 'l1_reg':0.0,
           'dropout':0.0, 'lr_tau': 0.1, 'scheduler':(10, 0.95), 'ckpt_dir':ckpt_dir,
           'test_behavior':tb_save_max_last_acc, 'test_every':1, 'delay_pruning':None, 'weight_pruning':None,
           'lsm':False, 'random_delay_pruning' : None, 'weight_quantization': None, 'k':None, 'depth': None, 'verbose':False}
@@ -73,6 +72,7 @@ def get_configs(sweep_params, sweep_params_names):
     return all_configs
 
 cfgs = get_configs(sweep_params, sweep_params_names)
+
 
 def train_model(cfg_id, repetition):
 

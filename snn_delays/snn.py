@@ -449,6 +449,7 @@ class SNN(Training, nn.Module):
                                          device=self.device)
         self.bias = False
         self.multi_proj = None # must be defined externally for 'mf' connection type
+        self.kwargs['multi_proj'] = self.multi_proj
 
         # By default, inputs are binarized according to this threshold (see
         # training/propagate). Set this to None if you want to allow floating
@@ -701,9 +702,12 @@ class SNN(Training, nn.Module):
                 #     getattr(self, name).weight *= self.mask                
 
             # Normal layer
-
+            ### FIX this
             if self.connection_type == 'mf':
-                n_multi_proj = self.multi_proj
+                if self.multi_proj is not None:
+                    n_multi_proj = self.multi_proj
+                else:
+                    n_multi_proj = 3
             else:
                 n_multi_proj = len(self.delays_h)
 

@@ -50,8 +50,14 @@ class ModelLoader:
         if 'mask' in kwargs.keys():
             del kwargs['mask']
 
+        if 'multi_proj' in kwargs.keys():
+            mf = kwargs['multi_proj'] 
+            del kwargs['multi_proj']
+
         snn = params['type']
         snn = snn(**kwargs)
+        if mf is not None:
+            snn.multi_proj = mf
         snn.set_network()
         snn.to(device)
         snn.load_state_dict(params['net'], strict= False) # be careful with this

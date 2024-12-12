@@ -29,7 +29,11 @@ def get_param_count(snn):
 
     effective_params = 0
     for layer in ['f0_f1']+snn.proj_names:
-        weights = torch.abs(getattr(snn,layer).weight.data.view(-1))
+        try:
+            weights = torch.abs(getattr(snn,layer).weight.data.view(-1))
+        except:
+            weights = torch.abs(getattr(snn,layer).linear.weight.data.view(-1))
+
         threshold = torch.max(weights)*0.01
         percentage = torch.sum(weights<=threshold)/torch.sum(weights>=0)
         effective_params += torch.sum(weights>threshold).item()
@@ -95,7 +99,7 @@ def get_results(ckpt_dir, sweep_params_names, rpts=3, mode='max', ablation_name=
             if not(model_loaded_flag):
                     raise FileNotFoundError(f'model with reference {reference} not found')
             
-            num_params[model_config], num_eff_params[model_config] = get_param_count(snn)
+            # num_params[model_config], num_eff_params[model_config] = get_param_count(snn)
 
             # Save results acc
             if f'{model_config}' not in acc.keys():            
