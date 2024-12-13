@@ -53,6 +53,8 @@ class ModelLoader:
         if 'multi_proj' in kwargs.keys():
             mf = kwargs['multi_proj'] 
             del kwargs['multi_proj']
+        else:
+            mf = None
 
         snn = params['type']
         snn = snn(**kwargs)

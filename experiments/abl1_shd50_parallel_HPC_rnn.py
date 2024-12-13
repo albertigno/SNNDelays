@@ -36,7 +36,7 @@ model_params = {'dataset_dict': dataset_dict, 'delay_type':'h',
                  'loss_fn':'mem_sum', 'batch_size':batch_size, 'device':device,
                  'debug':False}
 
-ckpt_dir = 'abl1_shd50_rnn_8'
+ckpt_dir = 'abl1_shd50_rnn'
 
 train_params = {'learning_rate':1e-3, 'num_epochs':100, 'spk_reg':0.0, 'l1_reg':0.0,
           'dropout':0.0, 'lr_tau': 0.1, 'scheduler':(10, 0.95), 'ckpt_dir':ckpt_dir,
@@ -105,7 +105,7 @@ if __name__ == "__main__":
     multiprocessing.set_start_method("spawn")
 
 
-    num_repetitions = 10
+    num_repetitions = 5
     repetitions = range(num_repetitions)
     cfg_ids = range(len(cfgs))
     #configs = list(itertools.product(cfg_ids, repetitions))
