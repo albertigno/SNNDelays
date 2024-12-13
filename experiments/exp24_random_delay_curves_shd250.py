@@ -22,7 +22,7 @@ train_loader, test_loader, dataset_dict = DL.get_dataloaders()
 
 ### fixed params
 
-model_params = {'dataset_dict': dataset_dict, 'delay_type':'ho', 'structure':(64,2), 'delay': (40, 1),
+model_params = {'dataset_dict': dataset_dict, 'delay_type':'ho', 'structure':(64,2), 'delay': (200, 1),
                  'reset_to_zero':True, 'win':total_time, 'delay_mask':'random', 'connection_type': 'f',
                  'loss_fn':'mem_sum', 'batch_size':batch_size, 'device':device,
                  'debug':False}
