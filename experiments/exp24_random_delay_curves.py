@@ -56,13 +56,13 @@ train_params = {'learning_rate':1e-3, 'num_epochs':100, 'spk_reg':0.0, 'l1_reg':
 
 #### first run ht_ft
 sweep_params = {
-    'n_pruned_delays':list(range(1, 40)),
+    'n_pruned_delays':list(range(21, 40)),
     'tau_m':['normal'],
     'T_freeze_taus':[True]
     }
 
 sweep_params_names = {
-    'n_pruned_delays':['rd'+str(x).zfill(2) for x in list(range(1, 40))],
+    'n_pruned_delays':['rd'+str(x).zfill(2) for x in list(range(21, 40))],
     'tau_m':['ht'],
     'T_freeze_taus':['ft']
     }
