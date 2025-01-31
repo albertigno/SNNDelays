@@ -98,7 +98,7 @@ def get_results(ckpt_dir, sweep_params_names, rpts=3, mode='max', ablation_name=
 
             if not(model_loaded_flag):
                     raise FileNotFoundError(f'model with reference {reference} not found')
-            
+
             # num_params[model_config], num_eff_params[model_config] = get_param_count(snn)
 
             # Save results acc
