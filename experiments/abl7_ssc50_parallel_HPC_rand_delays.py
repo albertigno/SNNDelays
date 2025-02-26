@@ -48,7 +48,7 @@ sweep_params = {
     'connection_type': ['f'],
     'delay': [(40, 1)],
     'structure':[(64,2)],
-    'tau_m':[20.0, 'normal'],
+    'tau_m':['normal'],
     'T_freeze_taus':[True, None]
     }
 
@@ -56,7 +56,7 @@ sweep_params_names = {
     'connection_type': ['f'],
     'delay': ['rd'],
     'structure':['2l'],
-    'tau_m':['hm', 'ht'],
+    'tau_m':['ht'],
     'T_freeze_taus':['ft', 'tt']
     }
 
