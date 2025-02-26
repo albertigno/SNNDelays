@@ -144,7 +144,15 @@ class Training:
         elif l_f == 'spk_count':
             # outputs = outputs/self.win   #normalized         
             outputs = torch.sum(torch.stack(all_o_spikes, dim=1), dim = 1)/self.win
-        
+
+        elif l_f == 'mem_prediction':
+            perc = 0.9
+            start_time = int(perc * self.win)
+            a_o_m = all_o_mems[start_time:]
+            #outputs, _ = torch.max(torch.stack(a_o_m, dim=1), dim = 1)
+            outputs = torch.mean(torch.stack(a_o_m, dim=1), dim = 1)
+            #outputs = torch.stack(a_o_m, dim=1).squeeze()
+
         return outputs, labels
 
 
@@ -575,6 +583,9 @@ class SNN(Training, nn.Module):
             self.output_thresh = self.thresh
         elif self.loss_fn == 'mem_mot' or self.loss_fn == 'mem_sum' or self.loss_fn == 'mem_last':
             self.criterion = nn.CrossEntropyLoss()
+            self.output_thresh = 1e6  # Output neurons never fire
+        elif self.loss_fn == 'mem_prediction':
+            self.criterion = nn.MSELoss()
             self.output_thresh = 1e6  # Output neurons never fire
 
         # Set update function

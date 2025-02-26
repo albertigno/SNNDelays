@@ -9,6 +9,7 @@ from torch.optim.lr_scheduler import StepLR
 import torch.cuda.amp as amp
 import numpy as np
 import time
+from IPython.display import clear_output
 
 def get_device():
     '''
@@ -22,7 +23,7 @@ def train(snn, train_loader, test_loader, learning_rate, num_epochs, spk_reg=0.0
           dropout=0.0, lr_tau=0.1, scheduler=(1, 0.98), ckpt_dir='checkpoint',
           test_behavior=None, test_every=5, delay_pruning = None, weight_pruning=None, lsm=False,
           random_delay_pruning = None, weight_quantization = None, k=None, depth= None, freeze_taus = None, 
-          verbose=True):
+          verbose=True, clear=False):
     """
     lr scale: originally I worked with same (1.0, 1.0 )lr for base (weights)
     tau_m, tau_adp
@@ -118,6 +119,9 @@ def train(snn, train_loader, test_loader, learning_rate, num_epochs, spk_reg=0.0
         if verbose:
             t = time.time() - start_time
             print('Time elasped:', t)
+
+        if clear:
+            clear_output(wait=True)
 
         # # update scheduler (adjust learning rate)
         # if scheduler:
@@ -288,6 +292,10 @@ def print_spike_info(snn, layer):
     print(f'spikes per timestep: {np.round(spk_per_timestep, 2)} / {dim}')
     print(f'spikes per neuron: {np.round(spk_per_neuron, 2)} / {snn.win}')
     print(f'spike density: {spk_density}')
+
+
+def to_plot(tensor):
+    return tensor.detach().cpu().numpy()
 
 
 def set_seed(seed):

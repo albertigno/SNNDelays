@@ -108,6 +108,114 @@ class SequentialPMNIST(Dataset):
 
         return train_attrs
 
+class AddTaskDataset(Dataset):
+    """
+    The adding problem Dataloader class
+
+    The input samples consist of tensors of dimension (time_window x 2)
+    where the first column is formed by random values between 0 and 1,
+    and the second column is a vector of zeros where only two components
+    take the value 1.
+
+    The target labels consists of the sum of the two random components
+    (values of the first column) associated with the positions where the 1s
+    appear in the second column. This target is a tensor with a size of
+    0.2 * sequence_length, but all the elements are the same target number
+    (this format is only for representation).
+    """
+
+    def __init__(self, seq_length=50, dataset_size=128, randomness=False):
+        """
+        Initialization of Dataset
+
+        :param seq_length: Length of the input sequence (tensor of dimension
+        seq_length x 2)
+        :param dataset_size: Number of samples in the dataset (the same as
+        batch size)
+        :param randomness: Control the random seed. If a dataset is generated
+        for test, it must be set as False to obtain always the same test
+        samples. Otherwise, for training datasets, it must be set as True.
+        """
+        super(AddTaskDataset, self).__init__()
+
+        self.seq_length = seq_length
+        self.dataset_size = dataset_size
+        self.randomness = randomness
+
+    def __len__(self):
+        """
+        The number of samples in the dataset
+
+        :return: An integer with the dataset size
+        """
+        return self.dataset_size
+
+    def __getitem__(self, idx):
+        """
+        Get a sample of the dataset. If the sample index is higher than the
+        number of samples in dataset, it returns an error and stop the
+        execution
+
+        :param idx: Index of the sample to be returned
+        :return: A tuple with the input sample and the target
+        """
+        if idx < self.dataset_size:
+            _x, _y = self.create_sample(self.seq_length, self.randomness, idx)
+            return _x, _y
+
+        else:
+            sys.exit('\n[ERROR]: Sample index exceeds the number of samples '
+                     'in dataset. Take into account that the first sample '
+                     'index is 0, not 1.')
+
+    @staticmethod
+    def create_sample(seq_len, rnd, idx):
+        """
+        Create a new sample of the dataset
+
+        :param seq_len: Length of the input sequence
+        :param rnd: Boolean to control de random seed. Take the value True for
+        training datasets and False for testing datasets
+        :param idx: Index of the sample to be returned
+        :return: A tuple with the input sample and the target
+        """
+
+        # Set seed
+        if not rnd:
+            torch.manual_seed(idx)
+
+        # Initialization and levels definition
+        seq = torch.zeros([seq_len, 2], dtype=torch.float)
+        levels = 2**8
+
+        # First input channel, random values
+        seq[:, 0] = torch.randint(1, levels, (1, seq_len)) / levels
+
+        # Second input channel, 2 random locations are 1
+        a, b = torch.rand(2)        # Random locations
+        wn = int(seq_len * 0.8)     # Pick random up to a point of the sequence
+        idx_a = int(a * wn / 2)     # First half
+        idx_b = int(wn / 2 + b * wn / 2) # Second half
+        seq[[idx_a, idx_b], 1] = 1       # Set 'ones' in the second channel
+
+        # Set label
+        lbl = seq[idx_a, 0] + seq[idx_b, 0]
+        label = lbl.item() * torch.ones([int(0.2 * seq_len), 1], dtype=torch.int32)
+        return seq.clone().detach(), label.clone().detach()
+    
+    def get_train_attributes(self):
+        """
+        Function to get these three attributes which are necessary for a
+        correct initialization of the SNNs: num_training samples, num_input,
+        etc. All Dataset should have this, if possible.
+        """
+        train_attrs = {'num_input': 2,
+                       'num_training_samples': len(self),
+                       'num_output': 1}
+
+        return train_attrs
+
+
 
 class DummyPoissonDataloader(Dataset):
 

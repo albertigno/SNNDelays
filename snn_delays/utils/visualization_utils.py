@@ -683,3 +683,28 @@ def frame_2_image(snn, sample='random'):
         t = snn.win-rev_t
         composed_image += np.exp(-t/tau)*frame.detach().cpu().numpy()
     return composed_image
+
+
+def plot_taus(snn):
+    delta_t = snn.dataset_dict.get('time_ms', 0)/snn.win
+
+    num_subplots = len(snn.tau_m_h)
+
+    plt.title('Taus: real time (left), discrete time (right)')
+    for i, pseudo_tau_m in enumerate(snn.tau_m_h):
+
+        real_tau = -delta_t/torch.log(torch.sigmoid(pseudo_tau_m))
+
+        plt.subplot(num_subplots, 2, 2*i+1)
+        plot_param(real_tau, mode='histogram')
+        if i==num_subplots-1:
+            plt.xlabel('time (ms)')
+
+        plt.subplot(num_subplots, 2, 2*i+2)
+        #plot_param(real_tau/snn.win, mode='histogram')    
+        plot_param(real_tau/delta_t, mode='histogram')  
+        plt.xlim(0, snn.win)
+        
+        if i==num_subplots-1:
+            plt.xlabel('simulation timestep')
+    return plt.gca()

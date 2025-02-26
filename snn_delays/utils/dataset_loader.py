@@ -102,6 +102,22 @@ class DatasetLoader:
                     self.change_total_time(196)
                 else:
                     self.change_total_time(784)
+            elif dataset == 'addtask_episodic':
+                from snn_delays.datasets.sequential_datasets import AddTaskDataset
+                train_dataset = AddTaskDataset(seq_length=total_time,
+                                               dataset_size=batch_size,
+                                               randomness=True)
+                test_dataset = AddTaskDataset(seq_length=total_time,
+                                              dataset_size=batch_size,
+                                              randomness=True)
+            elif dataset == 'addtask':
+                from snn_delays.datasets.sequential_datasets import AddTaskDataset
+                train_dataset = AddTaskDataset(seq_length=total_time,
+                                                dataset_size=batch_size,
+                                                randomness=True)
+                test_dataset = AddTaskDataset(seq_length=total_time,
+                                               dataset_size=batch_size,
+                                               randomness=False)
             elif dataset == 'custom':
                 from snn_delays.datasets.custom_datasets import CustomDataset
                 data_train = kwargs['data_train']
@@ -148,7 +164,8 @@ class DatasetLoader:
         self.train_dataset = train_dataset
         self.test_dataset = test_dataset
 
-        print(type(test_dataset.data))
+
+        #print(type(test_dataset.data))
 
         # pin memory if caching is not GPU
         pin_memory = True
