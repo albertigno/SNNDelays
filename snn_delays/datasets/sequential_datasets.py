@@ -23,6 +23,7 @@ import numpy as np
 import sys
 import h5py
 from snn_delays.config import DATASET_PATH
+import time
 
 #one_hot_encoder = OneHotEncoder(sparse=False)
 
@@ -148,8 +149,14 @@ class AddTaskDataset(Dataset):
 
         :return: An integer with the dataset size
         """
-        return self.dataset_size
 
+        # if self.randomness:
+        #      return int(1e6)
+        # else:
+        #     return self.dataset_size
+
+        return self.dataset_size
+    
     def __getitem__(self, idx):
         """
         Get a sample of the dataset. If the sample index is higher than the
@@ -159,14 +166,18 @@ class AddTaskDataset(Dataset):
         :param idx: Index of the sample to be returned
         :return: A tuple with the input sample and the target
         """
-        if idx < self.dataset_size:
-            _x, _y = self.create_sample(self.seq_length, self.randomness, idx)
-            return _x, _y
+        # if idx < self.dataset_size:
+        #     _x, _y = self.create_sample(self.seq_length, self.randomness, idx)
+        #     return _x, _y
 
-        else:
-            sys.exit('\n[ERROR]: Sample index exceeds the number of samples '
-                     'in dataset. Take into account that the first sample '
-                     'index is 0, not 1.')
+        # else:
+        #     sys.exit('\n[ERROR]: Sample index exceeds the number of samples '
+        #              'in dataset. Take into account that the first sample '
+        #              'index is 0, not 1.')
+            
+
+        _x, _y = self.create_sample(self.seq_length, self.randomness, idx)
+        return _x, _y
 
     @staticmethod
     def create_sample(seq_len, rnd, idx):
@@ -184,9 +195,12 @@ class AddTaskDataset(Dataset):
         if not rnd:
             torch.manual_seed(idx)
 
+        #torch.manual_seed(idx if not rnd else idx + int(time.time()))
+
         # Initialization and levels definition
         seq = torch.zeros([seq_len, 2], dtype=torch.float)
-        levels = 2**8
+        levels = 2**16
+        #levels = 2**8
 
         # First input channel, random values
         seq[:, 0] = torch.randint(1, levels, (1, seq_len)) / levels
@@ -209,8 +223,9 @@ class AddTaskDataset(Dataset):
         correct initialization of the SNNs: num_training samples, num_input,
         etc. All Dataset should have this, if possible.
         """
+
         train_attrs = {'num_input': 2,
-                       'num_training_samples': len(self),
+                       'num_training_samples': self.dataset_size,
                        'num_output': 1}
 
         return train_attrs

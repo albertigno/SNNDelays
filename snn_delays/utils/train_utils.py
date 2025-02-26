@@ -146,8 +146,6 @@ def propagate_batch(snn, data, dropout = 0.0):
     data is either a train or a test loader
     '''
 
-
-
     dropout = torch.nn.Dropout(p=dropout, inplace=False)
 
     with amp.autocast(enabled=snn.use_amp):

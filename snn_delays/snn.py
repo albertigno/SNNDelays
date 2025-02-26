@@ -196,6 +196,8 @@ class Training:
                 # Propagate data
                 outputs, reference = self.propagate(images, labels)
 
+                print(reference)
+
                 #total spike count (for spike regularization)
                 spk_count = self.h_sum_spike / (self.batch_size * sum(self.num_neurons_list) * self.win)
                 
