@@ -196,8 +196,6 @@ class Training:
                 # Propagate data
                 outputs, reference = self.propagate(images, labels)
 
-                print(reference)
-
                 #total spike count (for spike regularization)
                 spk_count = self.h_sum_spike / (self.batch_size * sum(self.num_neurons_list) * self.win)
                 
@@ -454,6 +452,7 @@ class SNN(Training, nn.Module):
 
         # important parameters which are left fixed
         self.thresh = 0.3
+        self.mean_tau = 20.0 # perez-nieves
         self.surr = 'fs'
         self.surr_scale = torch.tensor([10.0], requires_grad=False,
                                          device=self.device)
@@ -754,8 +753,7 @@ class SNN(Training, nn.Module):
 
         logit = lambda x: np.log(x/(1-x))
 
-        mean_tau = 20.0 # mean tau 20ms (Perez-Nieves)
-
+        mean_tau = self.mean_tau # mean tau 20ms (Perez-Nieves)
         time_ms = self.dataset_dict.get('time_ms', 0)
         print(time_ms)
 

@@ -19,6 +19,7 @@ from matplotlib.animation import FuncAnimation
 import numpy as np
 from snn_delays.config import CHECKPOINT_PATH
 from snn_delays.utils.hw_aware_utils import get_w_from_proj_name
+from scipy.stats import gaussian_kde, norm, gamma, lognorm
 import torch
 
 def save_fig(model_dir, fig_name):
@@ -35,7 +36,7 @@ def save_fig(model_dir, fig_name):
     print('Figure saved in ', model_dir)
 
 
-def plot_param(w, mode='histogram', title='', xlabel='', ylabel='', ax=None, colormap='RdBu', vminmax=None, transform=None):
+def plot_param(w, mode='histogram', title='', label = '', xlabel='', ylabel='', ax=None, colormap='RdBu', vminmax=None, transform=None, **kwargs):
     """
     Function to plot histogram or matrix representation of a parameter.
 
@@ -91,7 +92,37 @@ def plot_param(w, mode='histogram', title='', xlabel='', ylabel='', ax=None, col
             w = w[w.nonzero()]
 
         #plt.hist(w, bins=200, log=log)
-        plt.hist(w, bins='auto', log=log)
+        n, bins, patches = plt.hist(w, bins='auto', density=True, log=log, alpha=0.5, label=label)
+        hist_color = patches[0].get_facecolor()
+
+        if 'distribution' in kwargs.keys() and len(w) >= 2:
+            if kwargs['distribution'] == 'lognorm':
+                # Fit a log-normal distribution
+                params = lognorm.fit(w, floc=0)
+                x = np.linspace(min(w), max(w), 1000)
+                pdf = lognorm.pdf(x, *params)
+                plt.plot(x, pdf, color=hist_color)
+
+            elif kwargs['distribution'] == 'normal':
+                # Fit a normal distribution
+                mu, std = norm.fit(w)
+                x = np.linspace(min(w), max(w), 1000)
+                pdf = norm.pdf(x, mu, std)
+                plt.plot(x, pdf, color=hist_color)
+
+            elif kwargs['distribution'] == 'gamma':
+                # Fit a gamma distribution
+                params = gamma.fit(w)
+                x = np.linspace(min(w), max(w), 1000)
+                pdf = gamma.pdf(x, *params)
+                plt.plot(x, pdf, color=hist_color)
+
+            elif kwargs['distribution'] == 'kde':
+                # Fit a Kernel Density Estimate (KDE)
+                kde = gaussian_kde(w)
+                x = np.linspace(min(w), max(w), 1000)
+                plt.plot(x, kde(x), color=hist_color)
+
         ax = plt.gca()
         ax.set_xlabel(xlabel, fontsize=14)
         ax.set_ylabel(ylabel, fontsize=14)
@@ -685,26 +716,113 @@ def frame_2_image(snn, sample='random'):
     return composed_image
 
 
-def plot_taus(snn):
+def plot_taus(snn, label = 'taus', mode='discrete'):
+
+    '''
+    mode: real or discrete
+    '''
+
     delta_t = snn.dataset_dict.get('time_ms', 0)/snn.win
 
     num_subplots = len(snn.tau_m_h)
 
-    plt.title('Taus: real time (left), discrete time (right)')
+    plt.title(f'Distribution of taus, {mode} time')
     for i, pseudo_tau_m in enumerate(snn.tau_m_h):
 
         real_tau = -delta_t/torch.log(torch.sigmoid(pseudo_tau_m))
 
-        plt.subplot(num_subplots, 2, 2*i+1)
-        plot_param(real_tau, mode='histogram')
-        if i==num_subplots-1:
-            plt.xlabel('time (ms)')
+        if mode=='real':
+            plt.subplot(num_subplots, 1, i+1)
+            plot_param(real_tau, mode='histogram', label=label, distribution='kde')
+            if i==num_subplots-1:
+                plt.xlabel('time (ms)')
 
-        plt.subplot(num_subplots, 2, 2*i+2)
-        #plot_param(real_tau/snn.win, mode='histogram')    
-        plot_param(real_tau/delta_t, mode='histogram')  
-        plt.xlim(0, snn.win)
-        
-        if i==num_subplots-1:
-            plt.xlabel('simulation timestep')
+        elif mode=='discrete':
+            plt.subplot(num_subplots, 1, i+1)
+            #plot_param(real_tau/snn.win, mode='histogram')    
+            plot_param(real_tau/delta_t, mode='histogram', label=label, distribution='kde')
+            plt.axvline(x=snn.win, color='red', linestyle='--', linewidth=2)
+    #        plt.xlim(0, snn.win)
+            if i==num_subplots-1:
+                plt.xlabel('simulation timestep')
+
+        else:
+            raise ValueError(f"Unsupported: {mode}. Choose from 'real', 'discrete'.")
+
     return plt.gca()
+
+def plot_add_task(output, reference, axes=None):
+    ref = reference
+    out = output
+
+    if out.ndim < 3:  # Ensure output has at least 3 dimensions
+        raise ValueError("Expected output to have at least 3 dimensions")
+
+    diff = ref - out[:, :, 0]
+
+    print(np.mean(diff))
+
+    if axes is None:
+        fig, axes = plt.subplots(3, 1, figsize=(5, 10))  # Create a new figure if axes not provided
+
+    axes[0].imshow(ref, vmin=0, vmax=2)
+    axes[0].set_title('Reference')
+    axes[0].set_ylabel('Time')
+
+    axes[1].imshow(out[:, :, 0], vmin=0, vmax=2)
+    axes[1].set_title('Output')
+    axes[1].set_ylabel('Time')
+
+    axes[2].imshow(diff, vmin=-1, vmax=1)
+    axes[2].set_title('Difference')
+    axes[2].set_ylabel('Time')
+    axes[2].set_xlabel('Training Sample')
+
+    return axes  # Return the axes to be used in an external figure
+
+def plot_add_task2(output, labels):
+    mean_out = np.mean(output, axis=0)
+    real_labels = labels[:, 0, 0]
+
+    plt.plot(real_labels, label='Real Labels')
+    plt.plot(mean_out, label='Mean Out')
+    plt.xlabel('Index')
+    plt.ylabel('Value')
+    plt.legend()
+
+    return plt.gca()
+
+def plot_add_task3(snn):
+    plt.imshow(snn.mem_state['output'].detach().cpu().numpy(), vmin=0, vmax=2)
+    plt.title('output')
+    plt.ylabel('time')
+    plt.xlabel('training sample')
+
+    return plt.gca()
+
+def plot_add_task4(snn):
+    N = np.random.randint(snn.batch_size)
+    reference = torch.sum(snn.spike_state['input'][:,N,1]* snn.spike_state['input'][:,N,0]).item()
+    visualize_activity(snn, 'output', sample=N)
+    plt.plot(snn.spike_state['input'][:,N,1].cpu().numpy())
+    plt.axhline(y=reference, color='r', linestyle='--')
+    plt.axvspan(0.9*snn.win,snn.win, color='gray', alpha=0.5)
+
+    return plt.gca()
+
+from snn_delays.utils.train_utils import to_plot
+
+def plot_membrane_evolution(snn, axes=None):
+
+    num_plots = len(snn.mem_state.keys())
+
+    if axes is None:
+        fig, axes = plt.subplots(num_plots, 1, figsize=(5, 10))  # Create a new figure if axes not provided    
+
+    for i, layer in enumerate(sorted(snn.mem_state.keys())):
+        axes[i].plot(to_plot(snn.mem_state[layer][:, 0, :]))
+        axes[i].set_title(layer)
+        if i == num_plots-1:
+            axes[i].set_xlabel("Timestep")
+
+    return axes
