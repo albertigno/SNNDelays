@@ -10,6 +10,8 @@ import torch.cuda.amp as amp
 import numpy as np
 import time
 from IPython.display import clear_output
+import matplotlib.pyplot as plt
+import streamlit as st
 
 def get_device():
     '''
@@ -23,7 +25,7 @@ def train(snn, train_loader, test_loader, learning_rate, num_epochs, spk_reg=0.0
           dropout=0.0, lr_tau=0.1, scheduler=(1, 0.98), ckpt_dir='checkpoint',
           test_behavior=None, test_every=5, delay_pruning = None, weight_pruning=None, lsm=False,
           random_delay_pruning = None, weight_quantization = None, k=None, depth= None, freeze_taus = None, 
-          verbose=True, clear=False):
+          verbose=True, streamlit=False, clear=False):
     """
     lr scale: originally I worked with same (1.0, 1.0 )lr for base (weights)
     tau_m, tau_adp
@@ -71,6 +73,15 @@ def train(snn, train_loader, test_loader, learning_rate, num_epochs, spk_reg=0.0
         random_proj_mask = [] # list of random projection mask
         for proj in proj_names_delays:
             random_proj_mask.append(torch.rand(getattr(snn, proj).weight.shape)>((50-random_delay_pruning)/50))
+
+    
+    if streamlit:
+        # Streamlit app
+        st.title("Live Training Loss Visualization")
+        st.write("This app visualizes the training loss of a simple PyTorch model in real-time.")
+
+        # Create a placeholder for the live plot
+        plot_placeholder = st.empty()
 
     for epoch in range(num_epochs):
         
@@ -122,6 +133,15 @@ def train(snn, train_loader, test_loader, learning_rate, num_epochs, spk_reg=0.0
 
         if clear:
             clear_output(wait=True)
+
+        if streamlit:
+            fig, ax = plt.subplots()
+            ax.plot(np.array(snn.train_loss)[:, 0], np.array(snn.train_loss)[:, 1], label="Training Loss")
+            ax.plot(np.array(snn.test_loss)[:, 0], np.array(snn.test_loss)[:, 1], label="Validation Loss")
+            ax.set_xlabel("Epoch")
+            ax.set_ylabel("Loss")
+            ax.legend()
+            plot_placeholder.pyplot(fig)
 
         # # update scheduler (adjust learning rate)
         # if scheduler:
