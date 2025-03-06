@@ -2,6 +2,8 @@ from snn_delays.snn import SNN
 from snn_delays.utils.dataset_loader import DatasetLoader
 from snn_delays.utils.train_utils import train, get_device
 from snn_delays.utils.test_behavior import tb_save_max_last_acc
+from snn_delays.config import CHECKPOINT_PATH
+import os
 import torch
 import multiprocessing
 
@@ -40,6 +42,10 @@ model_params = {'dataset_dict': dataset_dict, 'delay_type':'',
                  'debug':False}
 
 ckpt_dir = 'abl1_shd50_mf_mt'
+# If the directory do not exist, it is created
+model_path = os.path.join(CHECKPOINT_PATH, ckpt_dir)
+if not os.path.isdir(model_path):
+    os.makedirs(model_path)
 
 train_params = {'learning_rate':1e-3, 'num_epochs':100, 'spk_reg':0.0, 'l1_reg':0.0,
           'dropout':0.0, 'lr_tau': 0.1, 'scheduler':(10, 0.95), 'ckpt_dir':ckpt_dir,
