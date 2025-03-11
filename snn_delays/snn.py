@@ -109,10 +109,23 @@ class Training:
             padding_im = torch.zeros((self.batch_size - len(images),) + images.shape[1:]).to(self.device)
             images = torch.cat([images, padding_im], dim=0)
 
-        if self.use_amp:
-            images = images.view(self.batch_size, self.win, -1).half().to(self.device)
+        ### zero-padding the inputs along the temporal dimension
+        if self.time_win<self.win:
+            zero_t = torch.zeros(self.batch_size, self.win-self.time_win, images.size(2)*images.size(3), dtype=images.dtype, device=self.device)
+
+            if self.use_amp:
+                images = torch.cat([images.view(self.batch_size, self.time_win, -1), zero_t], dim=1).half().to(self.device)
+                
+                #images = images.view(self.batch_size, self.win, -1).half().to(self.device)
+            else:
+                images = torch.cat([images.view(self.batch_size, self.time_win, -1), zero_t], dim=1).float().to(self.device)
+            #images = images.view(self.batch_size, self.win, -1).half().to(self.device)
+
         else:
-            images = images.view(self.batch_size, self.win, -1).float().to(self.device)
+            if self.use_amp:
+                images = images.view(self.batch_size, self.win, -1).half().to(self.device)
+            else:
+                images = images.view(self.batch_size, self.win, -1).float().to(self.device)          
 
         # Squeeze to eliminate dimensions of size 1    
         if len(images.shape)>3:    
@@ -448,7 +461,7 @@ class SNN(Training, nn.Module):
         # Setting dropout
         # self.dropout = torch.nn.Dropout(p=1.0)
 
-        self.total_time = win  # For online learning [REVIEW]
+        self.time_win = win  # For online learning [REVIEW]
 
         # important parameters which are left fixed
         self.thresh = 0.3

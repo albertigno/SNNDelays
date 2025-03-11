@@ -12,6 +12,7 @@ import itertools
 import numpy as np
 import matplotlib.pyplot as plt
 import torch 
+from typing import List, Dict, Tuple, Any, Optional
 
 def get_param_count(snn):
     
@@ -120,64 +121,169 @@ def get_results(ckpt_dir, sweep_params_names, rpts=3, mode='max', ablation_name=
     return results
 
 
-def get_states(ckpt_dir, sweep_params_names, rpts=3, mode='max', ablation_name='', loader=None, batch_size=None):
+# def get_states(ckpt_dir, sweep_params_names, rpts=3, mode='max', ablation_name='', loader=None, batch_size=None):
+
+#     models_dir = os.path.join(RESULTS_PATH, ckpt_dir)
+#     ### MODELS
+#     models = []
+#     for _, __, files in os.walk(models_dir, topdown=False):
+#         for name in files:
+#             if '.py' not in name:
+#                 models.append(name)
+
+#     mem_states = dict()
+#     spike_states = dict()
+#     refs = dict()
+#     preds = dict()
+
+#     configurations_names = list(itertools.product(*sweep_params_names.values()))
+
+#     if type(rpts)==int:
+#         num_rpts = rpts
+#     else:
+#         num_rpts = 1
+
+#     for name in configurations_names:
+#         model_config = '_'.join(list(name))
+
+#         for rpt in range(num_rpts): 
+            
+#             # Load model with maximum acc
+#             reference = f'{ablation_name}{model_config}_rpt{rpt}' if type(rpts)==int else f'{model_config}'
+#             model_loaded_flag = False
+#             for model_name in models:
+#                 if reference in model_name and mode in model_name:
+#                     print(model_name)
+#                     snn = ModelLoader(
+#                         model_name, models_dir, batch_size, device, True)
+#                     clear_output(wait=True)
+#                     model_loaded_flag = True
+
+#             if not(model_loaded_flag):
+#                     raise FileNotFoundError(f'model with reference {reference} not found')
+            
+#             snn.debug = True
+#             ref, pred = snn.test(loader, only_one_batch=True)
+            
+#             if f'{model_config}' not in spike_states.keys():
+#                 spike_states[model_config] = snn.spike_state
+#                 mem_states[model_config] = snn.mem_state
+#                 refs[model_config] = ref
+#                 preds[model_config] = pred
+#             else:
+#                 spike_states[model_config].append(snn.spike_state)
+#                 mem_states[model_config].append(snn.mem_state)
+#                 refs[model_config].append(ref)
+#                 preds[model_config].append(pred)
+
+#     results = (spike_states, mem_states, refs, preds)
+
+#     return results
+
+
+### AI-enhanced
+def get_states(
+    ckpt_dir: str,
+    sweep_params_names: Dict[str, List[Any]],
+    attributes: List[str],  # List of attributes to extract (e.g., 'spike_state', 'mem_state')
+    rpts: int = 3,
+    mode: str = 'max',
+    ablation_name: str = '',
+    loader: Optional[Any] = None,
+    batch_size: Optional[int] = None,
+    device: str = 'cuda',  # Make the device configurable
+) -> Tuple[Dict[str, List[Any]], ...]:
+    """
+    Extracts specified attributes from SNN models stored in a checkpoint directory.
+
+    Args:
+        ckpt_dir (str): Directory containing model checkpoints.
+        sweep_params_names (Dict[str, List[Any]]): Dictionary of sweep parameters and their values.
+        attributes (List[str]): List of model attributes to extract (e.g., 'spike_state', 'mem_state').
+        rpts (int): Number of repetitions for each configuration.
+        mode (str): Mode for selecting the best model (e.g., 'max' for maximum accuracy).
+        ablation_name (str): Prefix for ablation studies.
+        loader: Data loader for testing the model.
+        batch_size (int): Batch size for testing.
+        results_path (str): Base path for results directory.
+        device (str): Device to run the model on (e.g., 'cuda' or 'cpu').
+
+    Returns:
+        Tuple[Dict[str, List[Any]], ...]: A tuple of dictionaries containing the extracted attributes.
+    """
 
     models_dir = os.path.join(RESULTS_PATH, ckpt_dir)
-    ### MODELS
-    models = []
-    for _, __, files in os.walk(models_dir, topdown=False):
-        for name in files:
-            if '.py' not in name:
-                models.append(name)
 
-    mem_states = dict()
-    spike_states = dict()
-    refs = dict()
-    preds = dict()
+    # Find all model files in the directory
+    models = [
+        name for _, __, files in os.walk(models_dir)
+        for name in files
+        if not name.endswith('.py')  # Exclude Python files
+    ]
 
+    # Initialize dictionaries to store results
+    results = {attr: dict() for attr in attributes}
+    results['refs'] = dict()  # Add refs to results
+    results['preds'] = dict()  # Add preds to results
+
+    # Generate all configurations from sweep parameters
     configurations_names = list(itertools.product(*sweep_params_names.values()))
 
-    if type(rpts)==int:
-        num_rpts = rpts
-    else:
-        num_rpts = 1
+    # Handle single repetition case
+    num_rpts = rpts if isinstance(rpts, int) else 1
 
-    for name in configurations_names:
-        model_config = '_'.join(list(name))
+    # If need to do snn.test
+    get_states = 'spike_state' in attributes or 'mem_state' in attributes
 
-        for rpt in range(num_rpts): 
-            
-            # Load model with maximum acc
-            reference = f'{ablation_name}{model_config}_rpt{rpt}' if type(rpts)==int else f'{model_config}'
+    for config_name in configurations_names:
+        model_config = '_'.join(config_name)
+
+        for rpt in range(num_rpts):
+            # Construct model reference
+            reference = f'{ablation_name}{model_config}_rpt{rpt}' if isinstance(rpts, int) else f'{model_config}'
             model_loaded_flag = False
+
+            # Find and load the model
             for model_name in models:
                 if reference in model_name and mode in model_name:
-                    print(model_name)
-                    snn = ModelLoader(
-                        model_name, models_dir, batch_size, device, True)
-                    clear_output(wait=True)
+                    print(f'Loading model: {model_name}')
+                    snn = ModelLoader(model_name, models_dir, batch_size, device, True)
+                    
+                    ######## TEMPORARY FIX to being unable to properly load MF-nets!!!
+                    if 'mf' in model_name:
+                        snn.multi_proj = 3
+                    
+                    #snn.use_amp = False
+                    #clear_output(wait=True)
                     model_loaded_flag = True
+                    break
 
-            if not(model_loaded_flag):
-                    raise FileNotFoundError(f'model with reference {reference} not found')
+            if not model_loaded_flag:
+                raise FileNotFoundError(f'Model with reference {reference} not found')
+
             
-            snn.debug = True
-            ref, pred = snn.test(loader, only_one_batch=True)
-            
-            if f'{model_config}' not in spike_states.keys():
-                spike_states[model_config] = snn.spike_state
-                mem_states[model_config] = snn.mem_state
-                refs[model_config] = ref
-                preds[model_config] = pred
-            else:
-                spike_states[model_config].append(snn.spike_state)
-                mem_states[model_config].append(snn.mem_state)
-                refs[model_config].append(ref)
-                preds[model_config].append(pred)
+            if get_states:
+                # Test the model
+                ref, pred = snn.test(loader, only_one_batch=True)
 
-    results = (spike_states, mem_states, refs, preds)
+            # Extract and store the specified attributes
+            for attr in attributes:
+                if not hasattr(snn, attr):
+                    raise AttributeError(f'Model does not have attribute: {attr}')
+                if model_config not in results[attr]:
+                    results[attr][model_config] = []
+                results[attr][model_config].append(getattr(snn, attr))
 
-    return results
+            if get_states:
+                # Store references and predictions
+                if model_config not in results['refs']:
+                    results['refs'][model_config] = []
+                    results['preds'][model_config] = []
+                results['refs'][model_config].append(ref)
+                results['preds'][model_config].append(pred)
+
+    # Return results as a tuple
+    return (*results.values(),)
 
 def get_gap_losses(results_test_loss, results_train_loss):
     '''
@@ -267,3 +373,5 @@ def plot_bars(data, features, method = 'normal'):
     
     plot_multiple_bars(y_list, x, label_list)
     return plt.gca()
+
+

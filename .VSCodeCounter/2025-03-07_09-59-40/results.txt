@@ -1,0 +1,52 @@
+Date : 2025-03-07 09:59:40
+Directory : c:\Users\Alberto\Python\SNNDelays\snn_delays
+Total : 24 files,  5380 codes, 954 comments, 1784 blanks, all 8118 lines
+
+Languages
++----------+------------+------------+------------+------------+------------+
+| language | files      | code       | comment    | blank      | total      |
++----------+------------+------------+------------+------------+------------+
+| Python   |         24 |      5,380 |        954 |      1,784 |      8,118 |
++----------+------------+------------+------------+------------+------------+
+
+Directories
++----------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                                                         | files      | code       | comment    | blank      | total      |
++----------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                                                            |         24 |      5,380 |        954 |      1,784 |      8,118 |
+| . (Files)                                                                                    |          3 |        815 |        146 |        272 |      1,233 |
+| datasets                                                                                     |          6 |        631 |         93 |        186 |        910 |
+| experimental_models                                                                          |          6 |      2,127 |        467 |        740 |      3,334 |
+| utils                                                                                        |          9 |      1,807 |        248 |        586 |      2,641 |
++----------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++----------------------------------------------------------------------------------------------+----------+------------+------------+------------+------------+
+| filename                                                                                     | language | code       | comment    | blank      | total      |
++----------------------------------------------------------------------------------------------+----------+------------+------------+------------+------------+
+| c:\Users\Alberto\Python\SNNDelays\snn_delays\__init__.py                                     | Python   |          0 |          0 |          1 |          1 |
+| c:\Users\Alberto\Python\SNNDelays\snn_delays\config.py                                       | Python   |          6 |          4 |          6 |         16 |
+| c:\Users\Alberto\Python\SNNDelays\snn_delays\datasets\__init__.py                            | Python   |          0 |          0 |          1 |          1 |
+| c:\Users\Alberto\Python\SNNDelays\snn_delays\datasets\custom_datasets.py                     | Python   |        104 |         18 |         31 |        153 |
+| c:\Users\Alberto\Python\SNNDelays\snn_delays\datasets\sequential_datasets.py                 | Python   |        209 |         32 |         69 |        310 |
+| c:\Users\Alberto\Python\SNNDelays\snn_delays\datasets\tonic_datasets.py                      | Python   |        242 |         31 |         65 |        338 |
+| c:\Users\Alberto\Python\SNNDelays\snn_delays\datasets\tonic_prototype_datasets.py            | Python   |         32 |          1 |          7 |         40 |
+| c:\Users\Alberto\Python\SNNDelays\snn_delays\datasets\transforms_tonic.py                    | Python   |         44 |         11 |         13 |         68 |
+| c:\Users\Alberto\Python\SNNDelays\snn_delays\experimental_models\snn_binary.py               | Python   |        183 |         50 |         66 |        299 |
+| c:\Users\Alberto\Python\SNNDelays\snn_delays\experimental_models\snn_binary_old.py           | Python   |        836 |        185 |        290 |      1,311 |
+| c:\Users\Alberto\Python\SNNDelays\snn_delays\experimental_models\snn_conv_input.py           | Python   |        802 |        152 |        273 |      1,227 |
+| c:\Users\Alberto\Python\SNNDelays\snn_delays\experimental_models\snn_delay_prun.py           | Python   |        130 |         38 |         49 |        217 |
+| c:\Users\Alberto\Python\SNNDelays\snn_delays\experimental_models\snn_mask.py                 | Python   |         88 |         20 |         30 |        138 |
+| c:\Users\Alberto\Python\SNNDelays\snn_delays\experimental_models\snn_trainable_thresholds.py | Python   |         88 |         22 |         32 |        142 |
+| c:\Users\Alberto\Python\SNNDelays\snn_delays\snn.py                                          | Python   |        809 |        142 |        265 |      1,216 |
+| c:\Users\Alberto\Python\SNNDelays\snn_delays\utils\dataset_loader.py                         | Python   |        173 |         13 |         40 |        226 |
+| c:\Users\Alberto\Python\SNNDelays\snn_delays\utils\hw_aware_utils.py                         | Python   |        367 |         75 |        149 |        591 |
+| c:\Users\Alberto\Python\SNNDelays\snn_delays\utils\memory_cached_dataset.py                  | Python   |         63 |          3 |         13 |         79 |
+| c:\Users\Alberto\Python\SNNDelays\snn_delays\utils\model_loader.py                           | Python   |         74 |          3 |         24 |        101 |
+| c:\Users\Alberto\Python\SNNDelays\snn_delays\utils\results_utils.py                          | Python   |        206 |         14 |         49 |        269 |
+| c:\Users\Alberto\Python\SNNDelays\snn_delays\utils\spinnaker_utils.py                        | Python   |         90 |         32 |         30 |        152 |
+| c:\Users\Alberto\Python\SNNDelays\snn_delays\utils\test_behavior.py                          | Python   |         45 |         11 |         13 |         69 |
+| c:\Users\Alberto\Python\SNNDelays\snn_delays\utils\train_utils.py                            | Python   |        232 |         18 |         75 |        325 |
+| c:\Users\Alberto\Python\SNNDelays\snn_delays\utils\visualization_utils.py                    | Python   |        557 |         79 |        193 |        829 |
+| Total                                                                                        |          |      5,380 |        954 |      1,784 |      8,118 |
++----------------------------------------------------------------------------------------------+----------+------------+------------+------------+------------+

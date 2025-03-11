@@ -1,6 +1,7 @@
 import torch
 import time
 from snn_delays.snn import SNN
+from snn_delays.experimental_models.snn_delay_prun import P_DelaySNN
 from snn_delays.utils.dataset_loader import DatasetLoader
 from snn_delays.utils.train_utils import train, get_device
 from snn_delays.utils.test_behavior import tb_save_max_last_acc
@@ -35,12 +36,16 @@ taimu1 = time.time()
 
 tau_m = 'normal'
 delay = (48,16)
-ckpt_dir = 'exp3_shd50_rnn' 
+ckpt_dir = 'exp3_shd50_d_ext_time' 
 
-snn = SNN(dataset_dict=dataset_dict, structure=(64, 2), connection_type='f',
-    delay=delay, delay_type='h', tau_m = tau_m,
-    win=total_time, loss_fn='mem_sum', batch_size=batch_size, device=device,
+extra_time = 0
+
+snn = P_DelaySNN(dataset_dict=dataset_dict, structure=(64, 2), connection_type='f',
+    delay=delay, delay_type='h', tau_m = tau_m, n_pruned_delays=3, delay_mask='random',
+    win=total_time + extra_time, loss_fn='mem_last', batch_size=batch_size, device=device,
     debug=False)
+
+# snn.time_win = total_time
 
 snn.set_network()
 

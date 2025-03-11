@@ -1,0 +1,196 @@
+Date : 2025-03-07 09:58:55
+Directory : c:\Users\Alberto\Python\SNNDelays
+Total : 149 files,  70257 codes, 1701 comments, 3478 blanks, all 75436 lines
+
+Languages
++------------------+------------+------------+------------+------------+------------+
+| language         | files      | code       | comment    | blank      | total      |
++------------------+------------+------------+------------+------------+------------+
+| JSON             |         48 |     59,398 |          0 |         48 |     59,446 |
+| Python           |         99 |     10,855 |      1,701 |      3,429 |     15,985 |
+| Markdown         |          1 |          2 |          0 |          1 |          3 |
+| pip requirements |          1 |          2 |          0 |          0 |          2 |
++------------------+------------+------------+------------+------------+------------+
+
+Directories
++---------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                                                                    | files      | code       | comment    | blank      | total      |
++---------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                                                                       |        149 |     70,257 |      1,701 |      3,478 |     75,436 |
+| . (Files)                                                                                               |          3 |        110 |          0 |          2 |        112 |
+| experiments                                                                                             |        101 |     59,871 |        592 |      1,497 |     61,960 |
+| experiments (Files)                                                                                     |         66 |     28,955 |        467 |      1,207 |     30,629 |
+| experiments\abl1_variations                                                                             |          8 |        817 |        101 |        214 |      1,132 |
+| experiments\conv_input                                                                                  |          1 |         36 |          3 |         11 |         50 |
+| experiments\new_delay_pruning                                                                           |          1 |        687 |          0 |          1 |        688 |
+| experiments\other_notebooks                                                                             |          8 |      9,504 |          0 |          8 |      9,512 |
+| experiments\snn2chip                                                                                    |         11 |     15,308 |         16 |         40 |     15,364 |
+| experiments\snn2chip (Files)                                                                            |         10 |     14,840 |         16 |         39 |     14,895 |
+| experiments\snn2chip\nmnist17_alpha1                                                                    |          1 |        468 |          0 |          1 |        469 |
+| experiments\visualizations                                                                              |          6 |      4,564 |          5 |         16 |      4,585 |
+| other_scripts                                                                                           |         10 |        558 |        155 |        184 |        897 |
+| results                                                                                                 |         11 |      4,338 |          0 |         11 |      4,349 |
+| results (Files)                                                                                         |         10 |      3,861 |          0 |         10 |      3,871 |
+| results\old                                                                                             |          1 |        477 |          0 |          1 |        478 |
+| snn_delays                                                                                              |         24 |      5,380 |        954 |      1,784 |      8,118 |
+| snn_delays (Files)                                                                                      |          3 |        815 |        146 |        272 |      1,233 |
+| snn_delays\datasets                                                                                     |          6 |        631 |         93 |        186 |        910 |
+| snn_delays\experimental_models                                                                          |          6 |      2,127 |        467 |        740 |      3,334 |
+| snn_delays\utils                                                                                        |          9 |      1,807 |        248 |        586 |      2,641 |
++---------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++---------------------------------------------------------------------------------------------------------+------------------+------------+------------+------------+------------+
+| filename                                                                                                | language         | code       | comment    | blank      | total      |
++---------------------------------------------------------------------------------------------------------+------------------+------------+------------+------------+------------+
+| c:\Users\Alberto\Python\SNNDelays\README.md                                                             | Markdown         |          2 |          0 |          1 |          3 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\abl1_shd50_parallel.py                                    | Python           |         80 |         21 |         24 |        125 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\abl1_shd50_parallel_HPC_mf.py                             | Python           |         90 |         12 |         24 |        126 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\abl1_shd50_parallel_HPC_rand_delays.py                    | Python           |         89 |         12 |         25 |        126 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\abl1_shd50_parallel_HPC_rnn.py                            | Python           |         89 |         12 |         26 |        127 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\abl1_variations\abl1_shd50.py                             | Python           |        155 |          5 |         35 |        195 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\abl1_variations\abl1_shd50_HPC_mf_large_tau.py            | Python           |         96 |         14 |         25 |        135 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\abl1_variations\abl1_shd50_HPC_mf_medium_tau.py           | Python           |         96 |         14 |         25 |        135 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\abl1_variations\abl1_shd50_HPC_rd_large_tau.py            | Python           |         95 |         14 |         26 |        135 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\abl1_variations\abl1_shd50_HPC_rd_medium_tau.py           | Python           |         95 |         14 |         26 |        135 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\abl1_variations\abl1_shd50_HPC_rnn_large_tau.py           | Python           |         95 |         14 |         26 |        135 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\abl1_variations\abl1_shd50_HPC_rnn_medium_tau.py          | Python           |         95 |         14 |         26 |        135 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\abl1_variations\abl1_shd50_parallel_HPC_mf_test.py        | Python           |         90 |         12 |         25 |        127 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\abl2_gestures100.py                                       | Python           |        157 |          5 |         36 |        198 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\abl3_stmnist100.py                                        | Python           |        156 |          5 |         38 |        199 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\abl4_psmnist.py                                           | Python           |        158 |          5 |         40 |        203 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\abl4_psmnist_parallel.py                                  | Python           |         88 |         11 |         25 |        124 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\abl5_10letters.py                                         | Python           |        181 |          5 |         44 |        230 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\abl5_3letters.py                                          | Python           |        181 |          5 |         45 |        231 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\abl5_4letters.py                                          | Python           |        181 |          5 |         45 |        231 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\abl6_stmnist_memory.py                                    | Python           |        221 |         19 |         59 |        299 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\abl7_ssc50_parallel_HPC_mf.py                             | Python           |         90 |         12 |         24 |        126 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\abl7_ssc50_parallel_HPC_rand_delays.py                    | Python           |         89 |         12 |         25 |        126 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\abl7_ssc50_parallel_HPC_rnn.py                            | Python           |         89 |         12 |         26 |        127 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\conv_input\exp11_gestures_input_conv.py                   | Python           |         36 |          3 |         11 |         50 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\exp10_gestures.py                                         | Python           |         37 |          6 |         13 |         56 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\exp10_gestures_multi_proj.py                              | Python           |         89 |          9 |         21 |        119 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\exp11_gestures_local_conn copy.py                         | Python           |         44 |          4 |         15 |         63 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\exp11_gestures_local_conn.py                              | Python           |         43 |          4 |         14 |         61 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\exp12_gestures_random_crop_time.py                        | Python           |        168 |          7 |         40 |        215 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\exp13_binary_shd.py                                       | Python           |         50 |          9 |         24 |         83 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\exp14_shd50_all_delays.py                                 | Python           |         36 |          7 |         13 |         56 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\exp15_shd50_k_delays.py                                   | Python           |         37 |         11 |         15 |         63 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\exp16_gestures100_k_delays_v1.py                          | Python           |         59 |          7 |         26 |         92 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\exp16_gestures100_k_delays_v2.py                          | Python           |         43 |          7 |         16 |         66 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\exp16_gestures100_k_delays_v3 copy.py                     | Python           |         37 |         16 |         17 |         70 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\exp17_dvs50_3_delays.py                                   | Python           |         44 |          6 |         17 |         67 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\exp18_dvs250_k_delays.py                                  | Python           |         40 |          6 |         15 |         61 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\exp19_GesturesGC.py                                       | Python           |         64 |          6 |         23 |         93 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\exp19_MNIST_1.py                                          | Python           |         64 |          6 |         23 |         93 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\exp20_GesturesSmall.py                                    | Python           |         42 |          4 |         16 |         62 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\exp20_STMNIST_small.py                                    | Python           |         41 |          4 |         17 |         62 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\exp20_self_inhibition.ipynb                               | JSON             |      1,646 |          0 |          1 |      1,647 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\exp21_memory_retrieval_STMNIST.ipynb                      | JSON             |      5,245 |          0 |          1 |      5,246 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\exp22_memory_retrieval_onehot.ipynb                       | JSON             |      6,383 |          0 |          1 |      6,384 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\exp23_letter_raster_classification.ipynb                  | JSON             |        634 |          0 |          1 |        635 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\exp24_random_delay_curves.py                              | Python           |         67 |         21 |         19 |        107 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\exp24_random_delay_curves_shd250.py                       | Python           |         67 |         21 |         19 |        107 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\exp25_add_task_check_unique_batches.ipynb                 | JSON             |      1,168 |          0 |          1 |      1,169 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\exp25_add_task_ft.ipynb                                   | JSON             |      2,554 |          0 |          1 |      2,555 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\exp25_add_task_tt.ipynb                                   | JSON             |        990 |          0 |          1 |        991 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\exp26_add_task_ft_rnn_mf_d.ipynb                          | JSON             |        922 |          0 |          1 |        923 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\exp27_add_task50_all_tt_small_tau.ipynb                   | JSON             |        823 |          0 |          1 |        824 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\exp28_add_task50_all_tt_medium_tau.ipynb                  | JSON             |        798 |          0 |          1 |        799 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\exp29_add_task50_all_tt_large_tau.ipynb                   | JSON             |        798 |          0 |          1 |        799 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\exp30_add_task50_all_tt_xlarge_tau.ipynb                  | JSON             |        809 |          0 |          1 |        810 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\exp31_sampled_tonic_dataset.ipynb                         | JSON             |      2,236 |          0 |          1 |      2,237 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\exp31_sampled_tonic_dataset.py                            | Python           |         89 |          3 |         28 |        120 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\exp3_shd50.py                                             | Python           |         35 |          3 |         10 |         48 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\exp3_shd50_rnn.py                                         | Python           |         36 |          6 |         13 |         55 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\exp4_shd50_multi_proj.py                                  | Python           |         88 |          7 |         18 |        113 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\exp5_shd_soa_multibatch.py                                | Python           |         35 |          5 |         13 |         53 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\exp6_shd_50_b1024_sweep_learnig_rate.py                   | Python           |         33 |          5 |         13 |         51 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\exp6_shd_50_b1024_sweep_learnig_rate_final.py             | Python           |         66 |         11 |         33 |        110 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\exp6_shd_soa_b1024_sweep_learnig_rate.py                  | Python           |         33 |          4 |         13 |         50 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\exp7_gestures100_b128_sweep_learnig_rate_also_tau.py      | Python           |         71 |         11 |         32 |        114 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\exp7_shd_50_b1024_sweep_learnig_rate_also_tau.py          | Python           |         70 |         14 |         30 |        114 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\exp7_shd_soa_masquelier.py                                | Python           |         37 |          3 |         11 |         51 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\exp8_ps_mnist.py                                          | Python           |         36 |          4 |         14 |         54 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\exp8_stmnist.py                                           | Python           |         36 |          5 |         14 |         55 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\model_test.py                                             | Python           |         50 |          3 |         13 |         66 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\model_test_dym_batch.py                                   | Python           |         59 |          7 |         18 |         84 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\model_test_dym_batch_exp2.py                              | Python           |         39 |          6 |         11 |         56 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\model_test_dym_batch_exp3.py                              | Python           |         29 |         42 |         15 |         86 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\model_test_dym_batch_exp4_rpr_ablation.py                 | Python           |         47 |         11 |         13 |         71 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\model_test_fast.py                                        | Python           |         49 |          3 |         13 |         65 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\new_delay_pruning\new_delay_pruning_tests.ipynb           | JSON             |        687 |          0 |          1 |        688 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\other_notebooks\buffered_mask_register_buffer.ipynb       | JSON             |      1,477 |          0 |          1 |      1,478 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\other_notebooks\learning_rates.ipynb                      | JSON             |      2,153 |          0 |          1 |      2,154 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\other_notebooks\multi_feedforward.ipynb                   | JSON             |      1,318 |          0 |          1 |      1,319 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\other_notebooks\pruning_mask_double_check.ipynb           | JSON             |        282 |          0 |          1 |        283 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\other_notebooks\random_mask.ipynb                         | JSON             |      1,068 |          0 |          1 |      1,069 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\other_notebooks\stmnist.ipynb                             | JSON             |         88 |          0 |          1 |         89 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\other_notebooks\tau_membrane.ipynb                        | JSON             |      2,562 |          0 |          1 |      2,563 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\other_notebooks\weight_initialization.ipynb               | JSON             |        556 |          0 |          1 |        557 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\snn2chip\binary_snn_nmnist17_alpha1.ipynb                 | JSON             |      1,323 |          0 |          1 |      1,324 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\snn2chip\binary_snn_nmnist_thresholds.ipynb               | JSON             |        881 |          0 |          1 |        882 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\snn2chip\binary_snn_stmnist_multilayer.ipynb              | JSON             |        137 |          0 |          1 |        138 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\snn2chip\binary_snn_stmnist_thresholds.ipynb              | JSON             |        332 |          0 |          1 |        333 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\snn2chip\nmnist17_alpha1\binary_snn_nmnist17_alpha1.ipynb | JSON             |        468 |          0 |          1 |        469 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\snn2chip\relu_to_threshold.ipynb                          | JSON             |        291 |          0 |          1 |        292 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\snn2chip\train_nmnist_base.py                             | Python           |         35 |         11 |         17 |         63 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\snn2chip\train_stmnist_base.py                            | Python           |         33 |          5 |         14 |         52 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\snn2chip\trainable_thresholds.ipynb                       | JSON             |        987 |          0 |          1 |        988 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\snn2chip\unary_snn_stmnist_new_method.ipynb               | JSON             |      4,293 |          0 |          1 |      4,294 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\snn2chip\unary_snn_stmnist_old_method.ipynb               | JSON             |      6,528 |          0 |          1 |      6,529 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\visualizations\gesturesGC.ipynb                           | JSON             |        476 |          0 |          1 |        477 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\visualizations\gestures_visualization.ipynb               | JSON             |        754 |          0 |          1 |        755 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\visualizations\latency_to_correct.ipynb                   | JSON             |        234 |          0 |          1 |        235 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\visualizations\shd_visualization.ipynb                    | JSON             |      2,767 |          0 |          1 |      2,768 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\visualizations\shd_visualization.py                       | Python           |         47 |          5 |         11 |         63 |
+| c:\Users\Alberto\Python\SNNDelays\experiments\visualizations\stmnist_visualization.ipynb                | JSON             |        286 |          0 |          1 |        287 |
+| c:\Users\Alberto\Python\SNNDelays\other_scripts\01_local_connections.py                                 | Python           |         38 |          3 |         11 |         52 |
+| c:\Users\Alberto\Python\SNNDelays\other_scripts\02_inheritance.py                                       | Python           |         17 |          4 |          7 |         28 |
+| c:\Users\Alberto\Python\SNNDelays\other_scripts\03_letters.py                                           | Python           |         40 |         12 |         11 |         63 |
+| c:\Users\Alberto\Python\SNNDelays\other_scripts\04_create_letters_datasets.py                           | Python           |        231 |         59 |         81 |        371 |
+| c:\Users\Alberto\Python\SNNDelays\other_scripts\05_smaller_letters.py                                   | Python           |         40 |         12 |         11 |         63 |
+| c:\Users\Alberto\Python\SNNDelays\other_scripts\06_create_letters_memory_task.py                        | Python           |         47 |         31 |         21 |         99 |
+| c:\Users\Alberto\Python\SNNDelays\other_scripts\07_parallel_training_single_GPU.py                      | Python           |         50 |         10 |         14 |         74 |
+| c:\Users\Alberto\Python\SNNDelays\other_scripts\08_serial_training.py                                   | Python           |         43 |          7 |         11 |         61 |
+| c:\Users\Alberto\Python\SNNDelays\other_scripts\09_rename_models.py                                     | Python           |         14 |          6 |          5 |         25 |
+| c:\Users\Alberto\Python\SNNDelays\other_scripts\10_streamlit_error_serve.py                             | Python           |         38 |         11 |         12 |         61 |
+| c:\Users\Alberto\Python\SNNDelays\requirements.txt                                                      | pip requirements |          2 |          0 |          0 |          2 |
+| c:\Users\Alberto\Python\SNNDelays\results\01_ablation_shd50.ipynb                                       | JSON             |        380 |          0 |          1 |        381 |
+| c:\Users\Alberto\Python\SNNDelays\results\01_x01_ablation_shd50_different_initial_tau.ipynb             | JSON             |        375 |          0 |          1 |        376 |
+| c:\Users\Alberto\Python\SNNDelays\results\02_ablation_gestures100.ipynb                                 | JSON             |        534 |          0 |          1 |        535 |
+| c:\Users\Alberto\Python\SNNDelays\results\03_ablation_stmnist.ipynb                                     | JSON             |        489 |          0 |          1 |        490 |
+| c:\Users\Alberto\Python\SNNDelays\results\04_ablation_psmnist.ipynb                                     | JSON             |        497 |          0 |          1 |        498 |
+| c:\Users\Alberto\Python\SNNDelays\results\05_ablation_gestures100_multi_crop_to.ipynb                   | JSON             |        612 |          0 |          1 |        613 |
+| c:\Users\Alberto\Python\SNNDelays\results\06_ablation_3_letters.ipynb                                   | JSON             |        183 |          0 |          1 |        184 |
+| c:\Users\Alberto\Python\SNNDelays\results\06_ablation_4_letters.ipynb                                   | JSON             |        178 |          0 |          1 |        179 |
+| c:\Users\Alberto\Python\SNNDelays\results\07_ablation_sequential_mtmnist.ipynb                          | JSON             |        233 |          0 |          1 |        234 |
+| c:\Users\Alberto\Python\SNNDelays\results\08_ablation_ssc50.ipynb                                       | JSON             |        380 |          0 |          1 |        381 |
+| c:\Users\Alberto\Python\SNNDelays\results\old\01_ablation_shd50.ipynb                                   | JSON             |        477 |          0 |          1 |        478 |
+| c:\Users\Alberto\Python\SNNDelays\snn_delays\__init__.py                                                | Python           |          0 |          0 |          1 |          1 |
+| c:\Users\Alberto\Python\SNNDelays\snn_delays\config.py                                                  | Python           |          6 |          4 |          6 |         16 |
+| c:\Users\Alberto\Python\SNNDelays\snn_delays\datasets\__init__.py                                       | Python           |          0 |          0 |          1 |          1 |
+| c:\Users\Alberto\Python\SNNDelays\snn_delays\datasets\custom_datasets.py                                | Python           |        104 |         18 |         31 |        153 |
+| c:\Users\Alberto\Python\SNNDelays\snn_delays\datasets\sequential_datasets.py                            | Python           |        209 |         32 |         69 |        310 |
+| c:\Users\Alberto\Python\SNNDelays\snn_delays\datasets\tonic_datasets.py                                 | Python           |        242 |         31 |         65 |        338 |
+| c:\Users\Alberto\Python\SNNDelays\snn_delays\datasets\tonic_prototype_datasets.py                       | Python           |         32 |          1 |          7 |         40 |
+| c:\Users\Alberto\Python\SNNDelays\snn_delays\datasets\transforms_tonic.py                               | Python           |         44 |         11 |         13 |         68 |
+| c:\Users\Alberto\Python\SNNDelays\snn_delays\experimental_models\snn_binary.py                          | Python           |        183 |         50 |         66 |        299 |
+| c:\Users\Alberto\Python\SNNDelays\snn_delays\experimental_models\snn_binary_old.py                      | Python           |        836 |        185 |        290 |      1,311 |
+| c:\Users\Alberto\Python\SNNDelays\snn_delays\experimental_models\snn_conv_input.py                      | Python           |        802 |        152 |        273 |      1,227 |
+| c:\Users\Alberto\Python\SNNDelays\snn_delays\experimental_models\snn_delay_prun.py                      | Python           |        130 |         38 |         49 |        217 |
+| c:\Users\Alberto\Python\SNNDelays\snn_delays\experimental_models\snn_mask.py                            | Python           |         88 |         20 |         30 |        138 |
+| c:\Users\Alberto\Python\SNNDelays\snn_delays\experimental_models\snn_trainable_thresholds.py            | Python           |         88 |         22 |         32 |        142 |
+| c:\Users\Alberto\Python\SNNDelays\snn_delays\snn.py                                                     | Python           |        809 |        142 |        265 |      1,216 |
+| c:\Users\Alberto\Python\SNNDelays\snn_delays\utils\dataset_loader.py                                    | Python           |        173 |         13 |         40 |        226 |
+| c:\Users\Alberto\Python\SNNDelays\snn_delays\utils\hw_aware_utils.py                                    | Python           |        367 |         75 |        149 |        591 |
+| c:\Users\Alberto\Python\SNNDelays\snn_delays\utils\memory_cached_dataset.py                             | Python           |         63 |          3 |         13 |         79 |
+| c:\Users\Alberto\Python\SNNDelays\snn_delays\utils\model_loader.py                                      | Python           |         74 |          3 |         24 |        101 |
+| c:\Users\Alberto\Python\SNNDelays\snn_delays\utils\results_utils.py                                     | Python           |        206 |         14 |         49 |        269 |
+| c:\Users\Alberto\Python\SNNDelays\snn_delays\utils\spinnaker_utils.py                                   | Python           |         90 |         32 |         30 |        152 |
+| c:\Users\Alberto\Python\SNNDelays\snn_delays\utils\test_behavior.py                                     | Python           |         45 |         11 |         13 |         69 |
+| c:\Users\Alberto\Python\SNNDelays\snn_delays\utils\train_utils.py                                       | Python           |        232 |         18 |         75 |        325 |
+| c:\Users\Alberto\Python\SNNDelays\snn_delays\utils\visualization_utils.py                               | Python           |        557 |         79 |        193 |        829 |
+| c:\Users\Alberto\Python\SNNDelays\tests.ipynb                                                           | JSON             |        106 |          0 |          1 |        107 |
+| Total                                                                                                   |                  |     70,257 |      1,701 |      3,478 |     75,436 |
++---------------------------------------------------------------------------------------------------------+------------------+------------+------------+------------+------------+
