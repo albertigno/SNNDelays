@@ -177,9 +177,12 @@ class P_DelaySNN(SNN):
                 # else:
                 #     setattr(self, name, nn.Linear(
                 #         num_pre* len(self.delays_h), num_pre, bias=bias))
+                # setattr(self, name, nn.Linear(
+                #     num_pre* len(self.delays_h), num_pre, bias=bias))
+
                 setattr(self, name, nn.Linear(
-                    num_pre* len(self.delays_h), num_pre, bias=bias))
-                
+                    num_pre, num_pre, bias=bias))
+
                 self.proj_names.append(name)
 
                 # # Apply the mask to the weights after initialization
@@ -206,7 +209,7 @@ class P_DelaySNN(SNN):
         if self.connection_type == 'r':
             name = self.layer_names[-1] + '_' + self.layer_names[-1]
             setattr(self, name, nn.Linear(
-                self.num_neurons_list[-1]* len(self.delays_h), self.num_neurons_list[-1], bias=bias))                              
+                self.num_neurons_list[-1], self.num_neurons_list[-1], bias=bias))                              
             self.proj_names.append(name)
 
         # output layer

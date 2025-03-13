@@ -115,17 +115,17 @@ class Training:
 
             if self.use_amp:
                 images = torch.cat([images.view(self.batch_size, self.time_win, -1), zero_t], dim=1).half().to(self.device)
-                
-                #images = images.view(self.batch_size, self.win, -1).half().to(self.device)
             else:
                 images = torch.cat([images.view(self.batch_size, self.time_win, -1), zero_t], dim=1).float().to(self.device)
-            #images = images.view(self.batch_size, self.win, -1).half().to(self.device)
 
-        else:
+        elif self.time_win == self.win:
             if self.use_amp:
                 images = images.view(self.batch_size, self.win, -1).half().to(self.device)
             else:
                 images = images.view(self.batch_size, self.win, -1).float().to(self.device)          
+
+        else:
+            raise Exception("propagation time below data timesteps not implemented yet!")
 
         # Squeeze to eliminate dimensions of size 1    
         if len(images.shape)>3:    
@@ -461,7 +461,7 @@ class SNN(Training, nn.Module):
         # Setting dropout
         # self.dropout = torch.nn.Dropout(p=1.0)
 
-        self.time_win = win  # For online learning [REVIEW]
+        self.time_win = win  # win: the time of data, time_win the time of training
 
         # important parameters which are left fixed
         self.thresh = 0.3
@@ -1065,11 +1065,12 @@ class SNN(Training, nn.Module):
 
             for i, layer in enumerate(self.layer_names):
 
-                # calculate recurrent extended spikes
-                if self.connection_type == 'r' and 'h' in self.delay_type:
-                    r_ext_spk = extended_spikes[layer][:, step + self.delays, :].reshape(self.batch_size, -1)
-                else:
-                    r_ext_spk = spikes[layer]
+                # # Uncomment for recurrent+delays layer
+                # if self.connection_type == 'r' and 'h' in self.delay_type:
+                #     r_ext_spk = extended_spikes[layer][:, step + self.delays, :].reshape(self.batch_size, -1)
+                # else:
+                #     r_ext_spk = spikes[layer]
+                r_ext_spk = spikes[layer]
 
                 mems[layer], spikes[layer] = self.update_mem_fn(
                     prev_spikes.reshape(self.batch_size, -1), spikes[layer], mems[layer], self.thresh, r_ext_spk)
