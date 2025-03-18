@@ -800,8 +800,8 @@ def plot_add_task3(snn):
 
     return plt.gca()
 
-def plot_add_task4(snn):
-    N = np.random.randint(snn.batch_size)
+def plot_add_task4(snn, N):
+    #N = np.random.randint(snn.batch_size)
     reference = torch.sum(snn.spike_state['input'][:,N,1]* snn.spike_state['input'][:,N,0]).item()
     visualize_activity(snn, 'output', sample=N)
     plt.plot(snn.spike_state['input'][:,N,1].cpu().numpy())

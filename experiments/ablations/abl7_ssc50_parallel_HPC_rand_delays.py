@@ -18,7 +18,7 @@ device = get_device()
 
 dataset = 'ssc'
 total_time = 50
-batch_size = 1024
+batch_size = 256
 
 # DATASET
 DL = DatasetLoader(dataset=dataset,
@@ -36,10 +36,10 @@ model_params = {'dataset_dict': dataset_dict, 'delay_type':'h',
                  'loss_fn':'mem_sum', 'batch_size':batch_size, 'device':device,
                  'debug':False}
 
-ckpt_dir = 'abl7_ssc50_rd_v3'
+ckpt_dir = 'abl7_ssc50_rd_v4'
 
 train_params = {'learning_rate':1e-3, 'num_epochs':100, 'spk_reg':0.0, 'l1_reg':0.0,
-          'dropout':0.0, 'lr_tau': 0.1, 'scheduler':(10, 0.95), 'ckpt_dir':ckpt_dir,
+          'dropout':0.0, 'lr_tau': 0.01, 'scheduler':(10, 0.95), 'ckpt_dir':ckpt_dir,
           'test_behavior':tb_save_max_last_acc, 'test_every':1, 'delay_pruning':None, 'weight_pruning':None,
           'lsm':False, 'random_delay_pruning' : None, 'weight_quantization': None, 'k':None, 'depth': None, 'verbose':False}
 
