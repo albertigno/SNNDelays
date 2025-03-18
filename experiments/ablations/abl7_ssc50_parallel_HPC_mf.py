@@ -13,7 +13,7 @@ V2: total_time = 100, hidden_size = 256
 device = get_device()
 
 dataset = 'ssc'
-total_time = 100
+total_time = 50
 batch_size = 1024
 
 # DATASET
@@ -32,7 +32,7 @@ model_params = {'dataset_dict': dataset_dict, 'delay_type':'',
                  'loss_fn':'mem_sum', 'batch_size':batch_size, 'device':device,
                  'debug':False}
 
-ckpt_dir = 'abl7_ssc50_mf_v2'
+ckpt_dir = 'abl7_ssc50_mf_v3'
 
 train_params = {'learning_rate':1e-3, 'num_epochs':100, 'spk_reg':0.0, 'l1_reg':0.0,
           'dropout':0.0, 'lr_tau': 0.1, 'scheduler':(10, 0.95), 'ckpt_dir':ckpt_dir,
