@@ -199,8 +199,9 @@ class AddTaskDataset(Dataset):
 
         # Initialization and levels definition
         seq = torch.zeros([seq_len, 2], dtype=torch.float)
-        levels = 2**16
+        #levels = 2**16
         #levels = 2**8
+        levels = 2**3
 
         # First input channel, random values
         seq[:, 0] = torch.randint(1, levels, (1, seq_len)) / levels

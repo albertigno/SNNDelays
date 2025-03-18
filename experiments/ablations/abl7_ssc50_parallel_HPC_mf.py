@@ -6,18 +6,14 @@ import torch
 import multiprocessing
 
 '''
-demonstration of parallel ablation.
-serial: 200MB 6'30 min (caching: ram) aprox 260 mins in total
-serial: 1.4GB 5'30 min (caching: gpu ram) aprox 220 min in total
-parallel (1 rpt): 1.7GB: 160 minutes total (caching: ram)
-parallel (1 rpt): 3.9GB: ?? minutes total (caching: gpu ram)
-parallel (2 rps): 3.2GB: 165 minutes total (num_workers=0)
+V1: total_time = 50, hidden_size = 64
+V2: total_time = 100, hidden_size = 256
 '''
 
 device = get_device()
 
 dataset = 'ssc'
-total_time = 50
+total_time = 100
 batch_size = 1024
 
 # DATASET
@@ -31,12 +27,12 @@ train_loader, test_loader, dataset_dict = DL.get_dataloaders()
 
 ### fixed params
 
-model_params = {'dataset_dict': dataset_dict, 'delay_type':'h',
+model_params = {'dataset_dict': dataset_dict, 'delay_type':'',
                  'reset_to_zero':True, 'win':total_time,
                  'loss_fn':'mem_sum', 'batch_size':batch_size, 'device':device,
                  'debug':False}
 
-ckpt_dir = 'abl7_ssc50_rnn'
+ckpt_dir = 'abl7_ssc50_mf_v2'
 
 train_params = {'learning_rate':1e-3, 'num_epochs':100, 'spk_reg':0.0, 'l1_reg':0.0,
           'dropout':0.0, 'lr_tau': 0.1, 'scheduler':(10, 0.95), 'ckpt_dir':ckpt_dir,
@@ -45,15 +41,15 @@ train_params = {'learning_rate':1e-3, 'num_epochs':100, 'spk_reg':0.0, 'l1_reg':
 
 #### first run (f+d)
 sweep_params = {
-    'connection_type': ['r'],
+    'connection_type': ['mf'],
     'delay': [None],
-    'structure':[(64,2)],
+    'structure':[(256,2)],
     'tau_m':['normal'],
     'T_freeze_taus':[True, None]
     }
 
 sweep_params_names = {
-    'connection_type': ['r'],
+    'connection_type': ['mf'],
     'delay': ['nd'],
     'structure':['2l'],
     'tau_m':['ht'],
@@ -73,7 +69,6 @@ def get_configs(sweep_params, sweep_params_names):
 
 cfgs = get_configs(sweep_params, sweep_params_names)
 
-
 def train_model(cfg_id, repetition):
 
     cfg = cfgs[cfg_id]
@@ -88,6 +83,7 @@ def train_model(cfg_id, repetition):
     print(model_params)
     print(train_params)
     snn = SNN(**model_params)
+    snn.multi_proj = 3
     snn.set_network()
     snn.model_name = cfg['name'] + '_rpt' + str(repetition)
     snn.save_model(snn.model_name + "_initial", ckpt_dir)
@@ -104,8 +100,7 @@ if __name__ == "__main__":
 
     multiprocessing.set_start_method("spawn")
 
-
-    num_repetitions = 3
+    num_repetitions = 1
     repetitions = range(num_repetitions)
     cfg_ids = range(len(cfgs))
     #configs = list(itertools.product(cfg_ids, repetitions))

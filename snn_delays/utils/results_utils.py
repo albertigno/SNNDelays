@@ -254,7 +254,7 @@ def get_states(
                         snn.multi_proj = 3
                     
                     #snn.use_amp = False
-                    #clear_output(wait=True)
+                    clear_output(wait=True)
                     model_loaded_flag = True
                     break
 
