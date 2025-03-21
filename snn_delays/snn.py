@@ -162,8 +162,9 @@ class Training:
             perc = 0.9
             start_time = int(perc * self.win)
             a_o_m = all_o_mems[start_time:]
-            #outputs, _ = torch.max(torch.stack(a_o_m, dim=1), dim = 1)
             outputs = torch.mean(torch.stack(a_o_m, dim=1), dim = 1)
+            #outputs, _ = torch.max(torch.stack(a_o_m, dim=1), dim = 1)
+            
             #outputs = torch.stack(a_o_m, dim=1).squeeze()
 
         return outputs, labels
@@ -574,6 +575,11 @@ class SNN(Training, nn.Module):
         self.set_layer_lists()
         self.to(self.device)
 
+    @staticmethod
+    def weighted_mse_loss(output, target):
+        weights = torch.abs(target - 1.0) + 1.0  # Higher weight for targets near 0 and 2
+        return torch.mean(weights * (output - target) ** 2)
+
     def define_metaparameters(self):
         """
         Method to set up the number of input/outputs and train samples of
@@ -599,7 +605,8 @@ class SNN(Training, nn.Module):
             self.criterion = nn.CrossEntropyLoss()
             self.output_thresh = 1e6  # Output neurons never fire
         elif self.loss_fn == 'mem_prediction':
-            self.criterion = nn.MSELoss()
+            #self.criterion = nn.MSELoss()
+            self.criterion = self.weighted_mse_loss
             self.output_thresh = 1e6  # Output neurons never fire
 
         # Set update function
@@ -667,7 +674,6 @@ class SNN(Training, nn.Module):
 
         # Define hidden layer names
         self.layer_names = ['f' + str(x + 1) for x in range(self.num_layers)]
-
 
     # TODO: Adjust this to the new changes
     def define_model_name(self):
@@ -1018,7 +1024,11 @@ class SNN(Training, nn.Module):
             th_reset = self.th_reset
 
         o_spike = self.act_fun(mem-thresh, self.surr_scale)
-        mem = mem*(mem < th_reset)     
+        mem = mem*(mem < th_reset)
+
+        #rand_th = th_reset + 0.3*torch.randn_like(mem)
+        #mem = mem*(mem < rand_th)    
+        #print(rand_th)
 
         return mem, o_spike
 

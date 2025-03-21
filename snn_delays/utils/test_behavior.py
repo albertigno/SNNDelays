@@ -65,5 +65,6 @@ def tb_addtask(snn, ckpt_dir, test_loader, dropout, test_every):
         loss = snn.criterion(pred, ref)
         #tolerance = 0.04 # a             
         #correct = torch.sum(abs(pred-ref) < 0.04)
+        #print(f"prediction {pred}, reference {ref}")
         print(f'Mean Error: {loss.item()/len(images)}% ')
         print('--------------------------')

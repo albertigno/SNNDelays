@@ -3,7 +3,7 @@ common operations when loading datasets for analysis
 '''
 RESULTS_PATH = r'C:\Users\Alberto\OneDrive - UNIVERSIDAD DE SEVILLA\PythonData\Checkpoints'
 from snn_delays.utils.model_loader import ModelLoader
-from snn_delays.utils.train_utils import get_device
+from snn_delays.utils.train_utils import get_device, propagate_batch
 from snn_delays.utils.hw_aware_utils import prune_weights
 from IPython.display import clear_output
 device = get_device()
@@ -92,6 +92,7 @@ def get_results(ckpt_dir, sweep_params_names, rpts=3, mode='max', ablation_name=
                     clear_output(wait=True)
                     max_acc = snn.acc[-1][-1]
                     # spikes per timestep per neuron
+                    print(snn.test_spk_count[-1][-1])
                     spike_density = len(snn.num_neurons_list)*snn.test_spk_count[-1][-1] / snn.win
                     # spikes per timestep in total
                     spike_per_time = spike_density*sum(snn.num_neurons_list)
@@ -264,7 +265,8 @@ def get_states(
             
             if get_states:
                 # Test the model
-                ref, pred = snn.test(loader, only_one_batch=True)
+                #ref, pred = snn.test(loader, only_one_batch=True)
+                ref, pred = propagate_batch(snn, loader)
 
             # Extract and store the specified attributes
             for attr in attributes:

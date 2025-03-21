@@ -128,7 +128,9 @@ class TonicDataset:
             #                                  downsampling_method='integrator',
             #                                  noise_threshold=10, 
             #                                  differentiator_time_bins=2))
-            
+
+        
+
         # Define final transformations
         list_sample_transform.append(
             transforms.ToFrame(

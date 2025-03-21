@@ -751,7 +751,7 @@ def plot_taus(snn, label = 'taus', mode='discrete'):
 
     return plt.gca()
 
-def plot_add_task(output, reference, axes=None):
+def plot_add_task(output, reference, axes=None, name=''):
     ref = reference
     out = output
 
@@ -766,7 +766,7 @@ def plot_add_task(output, reference, axes=None):
         fig, axes = plt.subplots(3, 1, figsize=(5, 10))  # Create a new figure if axes not provided
 
     axes[0].imshow(ref, vmin=0, vmax=2)
-    axes[0].set_title('Reference')
+    axes[0].set_title('Reference '+name)
     axes[0].set_ylabel('Time')
 
     axes[1].imshow(out[:, :, 0], vmin=0, vmax=2)
@@ -826,3 +826,33 @@ def plot_membrane_evolution(snn, axes=None):
             axes[i].set_xlabel("Timestep")
 
     return axes
+
+
+def plot_losses(nested_loss_lists, label='Mean loss', color='blue', linestyle='-'):
+
+    '''
+    plot and compare losses for ablation study
+    '''
+
+    # Example data: replace `nested_loss_lists` with your actual data
+    #nested_loss_lists = tstloss_d['f_d_2l_hm_ft']
+
+    # Ensure all lists have the same length and epoch indices
+    epochs = [entry[0] for entry in nested_loss_lists[0]]  # Epochs
+    all_losses = [np.array([entry[1] for entry in lst]) for lst in nested_loss_lists]
+
+    # Calculate average and standard deviation
+    mean_losses = np.mean(all_losses, axis=0)
+    std_losses = np.std(all_losses, axis=0)
+
+    # Plot the average loss curve with error bars
+    #plt.figure(figsize=(10, 6))
+    plt.plot(epochs, mean_losses, label=label, color=color, linestyle=linestyle)
+    #plt.fill_between(epochs, mean_losses - std_losses, mean_losses + std_losses, color=color, alpha=0.2, label='±1 Std Dev')
+    plt.fill_between(epochs, mean_losses - std_losses, mean_losses + std_losses, color=color, alpha=0.2)
+    #plt.title("Average Loss Curve")
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    plt.legend()
+    plt.grid(True)
+    return plt.gca()
