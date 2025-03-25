@@ -41,7 +41,7 @@ train_params = {'learning_rate':1e-3, 'num_epochs':3000, 'spk_reg':0.0, 'l1_reg'
 
 union = {
     'connection_type': ['r', 'mf', 'f', 'f'], 
-    'delay': [None, None, None, (40, 1)],
+    'delay': [None, None, None, (200, 5)],
     'delay_type': ['', '', '', 'h']
 }
 
