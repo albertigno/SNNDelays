@@ -12,49 +12,86 @@ device = get_device()
 time_window = 50
 batch_size = 128 # 128: anil kag
 
-#ckpt_dir = 'abl8_addtask_st'
-ckpt_dir = 'abl8_addtask_mt_128'
+ckpt_dir = 'abl8_addtask_st_no_delay_type'
+#ckpt_dir = 'abl8_addtask_mt'
 #ckpt_dir = 'abl8_addtask_lt'
 
 dataset = 'addtask_episodic'
 
 DL = DatasetLoader(dataset=dataset, caching='', num_workers=0, batch_size=batch_size, total_time=time_window)
 train_loader, test_loader, dataset_dict = DL.get_dataloaders()
-# dataset_dict["time_ms"] = 2e3
-dataset_dict["time_ms"] = 150
+dataset_dict["time_ms"] = 2e3
+#dataset_dict["time_ms"] = 150
 #dataset_dict["time_ms"] = 5
 
-model_params = {'dataset_dict': dataset_dict, 'delay_type':'h',
+model_params = {'dataset_dict': dataset_dict, 'delay_type':'',
                  'reset_to_zero':True, 'win':time_window,
                  'loss_fn':'mem_prediction', 'batch_size':batch_size, 'device':device,
                  'debug':False}
 
-train_params = {'learning_rate':1e-3, 'num_epochs':1000, 'spk_reg':0.0, 'l1_reg':0.0,
-          'dropout':0.0, 'lr_tau': 0.01, 'scheduler':(100, 0.95), 'ckpt_dir':ckpt_dir,
+#lr_tau = 0.01 # default
+lr_tau = 0.1 # variation for small tau
+
+train_params = {'learning_rate':1e-3, 'num_epochs':5000, 'spk_reg':0.0, 'l1_reg':0.0,
+          'dropout':0.0, 'lr_tau': lr_tau, 'scheduler':(100, 0.95), 'ckpt_dir':ckpt_dir,
           'test_behavior':tb_addtask, 'test_every':100, 'delay_pruning':None, 'weight_pruning':None,
           'lsm':False, 'random_delay_pruning' : None, 'weight_quantization': None, 'k':None, 'depth': None, 'verbose':False}
 
-# parameters to join: value lists must have the same length
+#parameters to join: value lists must have the same length
+
+# union = {
+#     'connection_type': ['r', 'mf', 'f', 'f'], 
+#     'delay': [None, None, None, (40, 1)],
+#     'delay_type': ['', '', '', 'h']
+# }
+
+# union_keys = [*union.keys()]
+
+# sweep_params_names = {
+#     'U_1': ['rnn','mf', 'f', 'rd'],
+#     'structure':['2l'],
+#     'tau_m':['ht'],
+#     'T_freeze_taus':['tt']
+#     }
+
 union = {
-    'connection_type': ['r', 'mf', 'f'], 
-    'delay': [None, None, (40, 1)]
+    'connection_type': [ 'f'], 
+    'delay': [(40, 1)],
+    'delay_type': ['h']
 }
+
 union_keys = [*union.keys()]
 
-#### first run (f+d)
-sweep_params = {
-    'U_1': list(zip(*union.values())),
-    'structure':[(128,2)],
-    'tau_m':['normal'],
-    'T_freeze_taus':[True, None]
-    }
-
 sweep_params_names = {
-    'U_1': ['rnn','mf', 'rd'],
+    'U_1': ['rd'],
     'structure':['2l'],
     'tau_m':['ht'],
-    'T_freeze_taus':['ft', 'tt']
+    'T_freeze_taus':['tt']
     }
+
+sweep_params = {
+    'U_1': list(zip(*union.values())),
+    'structure':[(64,2)],
+    'tau_m':['normal'],
+    'T_freeze_taus':[None]
+    }
+
+
+
+# sweep_params = {
+#     'U_1': list(zip(*union.values())),
+#     'structure':[(64,2)],
+#     'tau_m':['normal'],
+#     'T_freeze_taus':[True, None]
+#     }
+
+# sweep_params_names = {
+#     'U_1': ['rnn','mf', 'rd'],
+#     'structure':['2l'],
+#     'tau_m':['ht'],
+#     'T_freeze_taus':['ft', 'tt']
+#     }
+
 
 import itertools
 def get_configs(sweep_params, sweep_params_names):
@@ -99,7 +136,35 @@ def train_model(cfg_id, repetition):
     snn.model_name = cfg['name'] + '_rpt' + str(repetition)
     train(snn, train_loader, test_loader, **train_params)
 
-# # Main function to manage parallel processes
+# # # Main function to manage parallel processes (without parallel repetitions)
+# if __name__ == "__main__":
+
+#     multiprocessing.set_start_method("spawn")
+
+#     num_repetitions = 3
+#     repetitions = range(num_repetitions)
+#     cfg_ids = range(len(cfgs))
+#     #configs = list(itertools.product(cfg_ids, repetitions))
+
+#     for repetition in repetitions:
+
+#         # Create and start processes
+#         processes = []
+
+#         for cfg_id in cfg_ids:
+#             process = multiprocessing.Process(target=train_model, args=(cfg_id,repetition))
+#             processes.append(process)
+#             process.start()
+
+#         # Wait for all processes to finish
+#         for process in processes:
+#             process.join()
+
+#         print(f"All training runs completed for rpt {repetition+1}/{num_repetitions}! ")
+
+
+# Main function to manage parallel processes (with parallel repetitions)
+
 if __name__ == "__main__":
 
     multiprocessing.set_start_method("spawn")
@@ -107,20 +172,18 @@ if __name__ == "__main__":
     num_repetitions = 3
     repetitions = range(num_repetitions)
     cfg_ids = range(len(cfgs))
-    #configs = list(itertools.product(cfg_ids, repetitions))
+    configs = list(itertools.product(cfg_ids, repetitions))
 
-    for repetition in repetitions:
+    # Create and start processes
+    processes = []
 
-        # Create and start processes
-        processes = []
+    for cfg_id, repetition in configs:
+        process = multiprocessing.Process(target=train_model, args=(cfg_id,repetition))
+        processes.append(process)
+        process.start()
 
-        for cfg_id in cfg_ids:
-            process = multiprocessing.Process(target=train_model, args=(cfg_id,repetition))
-            processes.append(process)
-            process.start()
+    # Wait for all processes to finish
+    for process in processes:
+        process.join()
 
-        # Wait for all processes to finish
-        for process in processes:
-            process.join()
-
-        print(f"All training runs completed for rpt {repetition+1}/{num_repetitions}! ")
+    print(f"All training runs completed for rpt {repetition+1}/{num_repetitions}! ")

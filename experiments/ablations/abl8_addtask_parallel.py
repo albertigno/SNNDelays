@@ -12,25 +12,28 @@ device = get_device()
 time_window = 50
 batch_size = 128 # 128: anil kag
 
-#ckpt_dir = 'abl8_addtask_st'
+ckpt_dir = 'abl8_addtask_st_lrtau01'
 #ckpt_dir = 'abl8_addtask_mt'
-ckpt_dir = 'abl8_addtask_lt'
+#ckpt_dir = 'abl8_addtask_lt'
 
 dataset = 'addtask_episodic'
 
 DL = DatasetLoader(dataset=dataset, caching='', num_workers=0, batch_size=batch_size, total_time=time_window)
 train_loader, test_loader, dataset_dict = DL.get_dataloaders()
-# dataset_dict["time_ms"] = 2e3
+dataset_dict["time_ms"] = 2e3
 #dataset_dict["time_ms"] = 150
-dataset_dict["time_ms"] = 5
+#dataset_dict["time_ms"] = 5
 
 model_params = {'dataset_dict': dataset_dict, 'delay_type':'h',
                  'reset_to_zero':True, 'win':time_window,
                  'loss_fn':'mem_prediction', 'batch_size':batch_size, 'device':device,
                  'debug':False}
 
+#lr_tau = 0.01 # default
+lr_tau = 0.1 # variation for small tau
+
 train_params = {'learning_rate':1e-3, 'num_epochs':1000, 'spk_reg':0.0, 'l1_reg':0.0,
-          'dropout':0.0, 'lr_tau': 0.01, 'scheduler':(100, 0.95), 'ckpt_dir':ckpt_dir,
+          'dropout':0.0, 'lr_tau': lr_tau, 'scheduler':(100, 0.95), 'ckpt_dir':ckpt_dir,
           'test_behavior':tb_addtask, 'test_every':100, 'delay_pruning':None, 'weight_pruning':None,
           'lsm':False, 'random_delay_pruning' : None, 'weight_quantization': None, 'k':None, 'depth': None, 'verbose':False}
 
@@ -41,19 +44,33 @@ union = {
 }
 union_keys = [*union.keys()]
 
-#### first run (f+d)
+# sweep_params = {
+#     'U_1': list(zip(*union.values())),
+#     'structure':[(64,2)],
+#     'tau_m':['normal'],
+#     'T_freeze_taus':[True, None]
+#     }
+
+# sweep_params_names = {
+#     'U_1': ['rnn','mf', 'rd'],
+#     'structure':['2l'],
+#     'tau_m':['ht'],
+#     'T_freeze_taus':['ft', 'tt']
+#     }
+
+
 sweep_params = {
     'U_1': list(zip(*union.values())),
     'structure':[(64,2)],
     'tau_m':['normal'],
-    'T_freeze_taus':[True, None]
+    'T_freeze_taus':[None]
     }
 
 sweep_params_names = {
     'U_1': ['rnn','mf', 'rd'],
     'structure':['2l'],
     'tau_m':['ht'],
-    'T_freeze_taus':['ft', 'tt']
+    'T_freeze_taus':['tt']
     }
 
 import itertools

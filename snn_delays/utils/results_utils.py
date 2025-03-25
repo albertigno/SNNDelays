@@ -225,7 +225,7 @@ def get_states(
     # Initialize dictionaries to store results
     results = {attr: dict() for attr in attributes}
     results['refs'] = dict()  # Add refs to results
-    results['preds'] = dict()  # Add preds to results
+    results['imgs'] = dict()  # Add preds to results
 
     # Generate all configurations from sweep parameters
     configurations_names = list(itertools.product(*sweep_params_names.values()))
@@ -235,6 +235,9 @@ def get_states(
 
     # If need to do snn.test
     get_states = 'spike_state' in attributes or 'mem_state' in attributes
+
+    if 'model' in attributes:
+        results['model'] = dict()
 
     for config_name in configurations_names:
         model_config = '_'.join(config_name)
@@ -262,27 +265,36 @@ def get_states(
             if not model_loaded_flag:
                 raise FileNotFoundError(f'Model with reference {reference} not found')
 
-            
             if get_states:
                 # Test the model
                 #ref, pred = snn.test(loader, only_one_batch=True)
-                ref, pred = propagate_batch(snn, loader)
+                img, ref = propagate_batch(snn, loader)
 
             # Extract and store the specified attributes
             for attr in attributes:
                 if not hasattr(snn, attr):
-                    raise AttributeError(f'Model does not have attribute: {attr}')
-                if model_config not in results[attr]:
-                    results[attr][model_config] = []
-                results[attr][model_config].append(getattr(snn, attr))
+                    if attr == 'model':
+                        if model_config not in results['model']:
+                            results['model'][model_config] = []
+                        else:
+                            results['model'][model_config].append(snn)                    
+                    else:
+                        raise AttributeError(f'Model does not have attribute: {attr}')
+                else:
+                    if model_config not in results[attr]:
+                        results[attr][model_config] = []
+                    results[attr][model_config].append(getattr(snn, attr))
 
             if get_states:
                 # Store references and predictions
                 if model_config not in results['refs']:
                     results['refs'][model_config] = []
-                    results['preds'][model_config] = []
+                    results['imgs'][model_config] = []
                 results['refs'][model_config].append(ref)
-                results['preds'][model_config].append(pred)
+                results['imgs'][model_config].append(img)
+
+
+    print(f'returning {results.keys()}')
 
     # Return results as a tuple
     return (*results.values(),)
