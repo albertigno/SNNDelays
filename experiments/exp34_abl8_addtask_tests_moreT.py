@@ -39,37 +39,37 @@ train_params = {'learning_rate':1e-3, 'num_epochs':3000, 'spk_reg':0.0, 'l1_reg'
 
 #parameters to join: value lists must have the same length
 
-union = {
-    'connection_type': ['r', 'mf', 'f'], 
-    'delay': [None, None, None],
-    'delay_type': ['', '', '']
-}
-
-union_keys = [*union.keys()]
-
-sweep_params_names = {
-    'U_1': ['rnn','mf', 'f'],
-    'structure':['2l'],
-    'tau_m':['ht'],
-    'T_freeze_taus':['tt']
-    }
-
-###############################
-
 # union = {
-#     'connection_type': [ 'f'], 
-#     'delay': [(200, 5)],
-#     'delay_type': ['h']
+#     'connection_type': ['r', 'mf', 'f'], 
+#     'delay': [None, None, None],
+#     'delay_type': ['', '', '']
 # }
 
 # union_keys = [*union.keys()]
 
 # sweep_params_names = {
-#     'U_1': ['rd'],
+#     'U_1': ['rnn','mf', 'f'],
 #     'structure':['2l'],
 #     'tau_m':['ht'],
 #     'T_freeze_taus':['tt']
 #     }
+
+###############################
+
+union = {
+    'connection_type': [ 'f'], 
+    'delay': [(200, 5)],
+    'delay_type': ['h']
+}
+
+union_keys = [*union.keys()]
+
+sweep_params_names = {
+    'U_1': ['rd'],
+    'structure':['2l'],
+    'tau_m':['ht'],
+    'T_freeze_taus':['tt']
+    }
 
 
 #################################3

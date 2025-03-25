@@ -21,11 +21,9 @@ def get_device():
     print('Running on: {}'.format(device), flush=True)
     return device
 
-def train(snn, train_loader, test_loader, learning_rate, num_epochs, spk_reg=0.0, l1_reg=0.0,
-          dropout=0.0, lr_tau=0.1, scheduler=(1, 0.98), ckpt_dir='checkpoint',
-          test_behavior=None, test_every=5, delay_pruning = None, weight_pruning=None, lsm=False,
-          random_delay_pruning = None, weight_quantization = None, k=None, depth= None, freeze_taus = None, 
-          verbose=True, streamlit=False, clear=False):
+def train(snn, train_loader, test_loader, learning_rate, num_epochs,
+          lr_tau=0.1, scheduler=(1, 0.98), ckpt_dir='checkpoint',
+          test_behavior=None, test_every=5, verbose=True, clear=False):
     """
     lr scale: originally I worked with same (1.0, 1.0 )lr for base (weights)
     tau_m, tau_adp
@@ -35,53 +33,14 @@ def train(snn, train_loader, test_loader, learning_rate, num_epochs, spk_reg=0.0
 
     tau_m_params = [param for name, param in snn.named_parameters() if 'tau' in name]
     weight_params = [param for name, param in snn.named_parameters() if 'linear' in name]
-    th_params = [param for name, param in snn.named_parameters() if 'th' in name]
-    #binary_scale_params = [param for name, param in snn.named_parameters() if 's' in name]
 
-    if lsm:
-        # Freeze all parameters except the last layer
-        for name, param in snn.named_parameters():
-            if 'o.weight' in name:
-                param.requires_grad = True
-            else:
-                param.requires_grad = False
-        optimizer = torch.optim.Adam([param for param in snn.parameters() if param.requires_grad], lr=learning_rate)
-    else:
-        optimizer = torch.optim.Adam([
-            {'params': weight_params},
-            {'params': tau_m_params, 'lr': lr_tau},
-            {'params': th_params, 'lr': 0.0}],
-            lr=learning_rate, eps=1e-5)
+    optimizer = torch.optim.Adam([
+        {'params': weight_params},
+        {'params': tau_m_params, 'lr': lr_tau}],
+        lr=learning_rate, eps=1e-5)
         
     step_size, gamma = scheduler[0], scheduler[1]
     scheduler = StepLR(optimizer, step_size=step_size, gamma=gamma)
-
-    if freeze_taus:
-        for param in tau_m_params:
-            param.requires_grad = False
-
-    # act_fun = ActFun.apply
-    #print(f'training {snn.model_name} for {num_epochs} epochs...', flush=True)
-
-    # get fixed masks for the random delays
-    if random_delay_pruning:
-        assert 'ho' in snn.delay_type , "random_delays only implemented for delay_type: iho, ho"
-        assert type(random_delay_pruning) == int, "random delays must be int: average number of delays kept"
-        proj_names_delays = snn.proj_names
-        if 'i' in snn.delay_type:
-            proj_names_delays = 'f0_f1' + proj_names_delays
-        random_proj_mask = [] # list of random projection mask
-        for proj in proj_names_delays:
-            random_proj_mask.append(torch.rand(getattr(snn, proj).weight.shape)>((50-random_delay_pruning)/50))
-
-    
-    if streamlit:
-        # Streamlit app
-        st.title("Live Training Loss Visualization")
-        st.write("This app visualizes the training loss of a simple PyTorch model in real-time.")
-
-        # Create a placeholder for the live plot
-        plot_placeholder = st.empty()
 
     for epoch in range(num_epochs):
         
@@ -93,39 +52,9 @@ def train(snn, train_loader, test_loader, learning_rate, num_epochs, spk_reg=0.0
                                                          current_lr, current_lr_tau), flush=True)
 
 
-        if k==None:
-            snn.train_step(train_loader,
-                        optimizer=optimizer,
-                        scheduler = scheduler,
-                        spk_reg=spk_reg,
-                        l1_reg=l1_reg,
-                        dropout=dropout,
-                        verbose=verbose)        
-        else:
-            snn.train_step_tr(train_loader=train_loader, optimizer=optimizer,
-                            criterion=snn.criterion, spk_reg=spk_reg,
-                            depth=depth, k=k, last=False)
+        snn.train_step(train_loader, optimizer=optimizer, scheduler = scheduler)        
+
          
-        if weight_quantization is not None:
-            assert (type(weight_quantization) == tuple and type(weight_quantization[-1]) == int), "weight_quantization must be a N-tuple that contains the N-params of quantize_weights() in hw_aware_utils.py plus the frequency in epochs of applying weight quantization"
-            if snn.epoch % weight_quantization[-1] == 0:
-                print(f'in-training weight quantization applied -> {weight_quantization[0]} bit', flush=True)
-                quantize_weights(snn, *weight_quantization[:-1])
-
-        if delay_pruning:
-            assert type(delay_pruning) == tuple and len(delay_pruning)==5, "delay_pruning must be a 5-tuple with the 4 params of pool_delays() in utils.py plus the frequency in epochs of applying delay pruning"
-            if (snn.epoch) % delay_pruning[-1] == 0:
-                print(f'pruning {delay_pruning[2]} for layers {delay_pruning[1]}', flush=True)
-                pool_delays(snn, delay_pruning[0], delay_pruning[1], delay_pruning[2], delay_pruning[3])
-
-        if weight_pruning:
-            if snn.epoch % weight_pruning[-1] == 0:
-                print(f'pruning {weight_pruning[0]*100}% for layers {weight_pruning[1]}', flush=True)
-                prune_weights(snn, weight_pruning[0], weight_pruning[1])
-
-        if random_delay_pruning:
-            for proj, mask in zip(proj_names_delays, random_proj_mask):
-                modify_weights(getattr(snn, proj), mask, 'mask')
 
         if verbose:
             t = time.time() - start_time
@@ -134,23 +63,9 @@ def train(snn, train_loader, test_loader, learning_rate, num_epochs, spk_reg=0.0
         if clear:
             clear_output(wait=True)
 
-        if streamlit:
-            fig, ax = plt.subplots()
-            ax.plot(np.array(snn.train_loss)[:, 0], np.array(snn.train_loss)[:, 1], label="Training Loss")
-            ax.plot(np.array(snn.test_loss)[:, 0], np.array(snn.test_loss)[:, 1], label="Validation Loss")
-            ax.set_xlabel("Epoch")
-            ax.set_ylabel("Loss")
-            ax.legend()
-            plot_placeholder.pyplot(fig)
-
-        # # update scheduler (adjust learning rate)
-        # if scheduler:
-        #     # optimizer = snn.lr_scheduler(optimizer, lr_decay_epoch=10) bojian
-        #     optimizer = snn.lr_scheduler(
-        #         optimizer=optimizer, lr_decay_epoch=scheduler[0], lr_decay=scheduler[1])
-
         # do the test every "test_every". if test_loader is a list, i.e [test_loader, train_loader],
         # test all the elements of the list
+        dropout = 0.0
         if type(test_loader)==list:
             for loader in test_loader:
                 test_behavior(snn, ckpt_dir, loader, dropout, test_every)
