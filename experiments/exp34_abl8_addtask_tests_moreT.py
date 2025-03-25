@@ -24,7 +24,7 @@ dataset_dict["time_ms"] = 5*2e3
 #dataset_dict["time_ms"] = 150
 #dataset_dict["time_ms"] = 5
 
-model_params = {'dataset_dict': dataset_dict, 'delay_type':'',
+model_params = {'dataset_dict': dataset_dict,
                  'reset_to_zero':True, 'win':time_window,
                  'loss_fn':'mem_prediction', 'batch_size':batch_size, 'device':device,
                  'debug':False}
@@ -40,23 +40,25 @@ train_params = {'learning_rate':1e-3, 'num_epochs':3000, 'spk_reg':0.0, 'l1_reg'
 #parameters to join: value lists must have the same length
 
 union = {
-    'connection_type': ['r', 'mf', 'f', 'f'], 
-    'delay': [None, None, None, (200, 5)],
-    'delay_type': ['', '', '', 'h']
+    'connection_type': ['r', 'mf', 'f'], 
+    'delay': [None, None, None],
+    'delay_type': ['', '', '']
 }
 
 union_keys = [*union.keys()]
 
 sweep_params_names = {
-    'U_1': ['rnn','mf', 'f', 'rd'],
+    'U_1': ['rnn','mf', 'f'],
     'structure':['2l'],
     'tau_m':['ht'],
     'T_freeze_taus':['tt']
     }
 
+###############################
+
 # union = {
 #     'connection_type': [ 'f'], 
-#     'delay': [(40, 1)],
+#     'delay': [(200, 5)],
 #     'delay_type': ['h']
 # }
 
@@ -69,26 +71,15 @@ sweep_params_names = {
 #     'T_freeze_taus':['tt']
 #     }
 
+
+#################################3
+
 sweep_params = {
     'U_1': list(zip(*union.values())),
     'structure':[(64,2)],
     'tau_m':['normal'],
     'T_freeze_taus':[None]
     }
-
-# sweep_params = {
-#     'U_1': list(zip(*union.values())),
-#     'structure':[(64,2)],
-#     'tau_m':['normal'],
-#     'T_freeze_taus':[True, None]
-#     }
-
-# sweep_params_names = {
-#     'U_1': ['rnn','mf', 'rd'],
-#     'structure':['2l'],
-#     'tau_m':['ht'],
-#     'T_freeze_taus':['ft', 'tt']
-#     }
 
 
 import itertools
