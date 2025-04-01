@@ -596,6 +596,8 @@ def visualize_activity(snn, layer, neuron=None, sample=None):
     # Check debug mode
     assert snn.debug == True, \
         "[ERROR]: Debug mode and at least one batch propagation are needed."
+    
+    th = 0.3
 
     # Take the number of neurons in the layer
     num_neurons = snn.spike_state[layer].shape[-1]
@@ -609,7 +611,7 @@ def visualize_activity(snn, layer, neuron=None, sample=None):
     # Get spike state and threshold
     spk = snn.spike_state[layer][:,sample,neuron]
     evt_spk = spk.cpu().detach().numpy().nonzero()
-    th_spk = snn.thresh * np.ones(len(evt_spk[0]))
+    th_spk = th * np.ones(len(evt_spk[0]))
 
     # Get membrane potential
     if layer != 'input':
@@ -619,7 +621,10 @@ def visualize_activity(snn, layer, neuron=None, sample=None):
         mem = np.zeros(snn.win,)
 
     # Plot
-    plt.hlines(snn.thresh, 0, snn.win, 'g', 'dashed', label='threshold')
+
+    
+
+    plt.hlines(th, 0, snn.win, 'g', 'dashed', label='threshold')
     plt.plot(mem, label='membrane potential')
     # plt.eventplot(spk.cpu().detach().numpy().nonzero())
     plt.scatter(evt_spk, th_spk, c='k', marker=10, label = 'spikes')

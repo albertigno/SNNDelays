@@ -34,6 +34,8 @@ def train(snn, train_loader, test_loader, learning_rate, num_epochs,
     tau_m_params = [param for name, param in snn.named_parameters() if 'tau' in name]
     weight_params = [param for name, param in snn.named_parameters() if 'linear' in name]
 
+    weight_params = weight_params + [param for name, param in snn.named_parameters() if 'f' in name]
+
     optimizer = torch.optim.Adam([
         {'params': weight_params},
         {'params': tau_m_params, 'lr': lr_tau}],
@@ -54,8 +56,6 @@ def train(snn, train_loader, test_loader, learning_rate, num_epochs,
 
         snn.train_step(train_loader, optimizer=optimizer, scheduler = scheduler)        
 
-         
-
         if verbose:
             t = time.time() - start_time
             print('Time elasped:', t)
@@ -68,30 +68,26 @@ def train(snn, train_loader, test_loader, learning_rate, num_epochs,
         dropout = 0.0
         if type(test_loader)==list:
             for loader in test_loader:
-                test_behavior(snn, ckpt_dir, loader, dropout, test_every)
+                test_behavior(snn, ckpt_dir, loader, test_every)
         else:        
-            test_behavior(snn, ckpt_dir, test_loader, dropout, test_every)
+            test_behavior(snn, ckpt_dir, test_loader, test_every)
 
     # empty the cuda cache after every training session
     torch.cuda.empty_cache()
 
-def propagate_batch(snn, data, dropout = 0.0):
+
+def propagate_batch_simple(snn, data):
     
     '''
     data is either a train or a test loader
     '''
 
-    dropout = torch.nn.Dropout(p=dropout, inplace=False)
-
-    with amp.autocast(enabled=snn.use_amp):
-
-        for images, labels in data:
-
-            images = dropout(images.float())
-            snn.propagate(images, labels)
-            break
+    for images, labels in data:
+        snn.propagate(images, labels)
+        break
 
     return images, labels
+
 
 def check_dataloader(loader, batch_size, total_time):
     '''

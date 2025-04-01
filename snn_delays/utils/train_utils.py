@@ -25,7 +25,7 @@ def train(snn, train_loader, test_loader, learning_rate, num_epochs, spk_reg=0.0
           dropout=0.0, lr_tau=0.1, scheduler=(1, 0.98), ckpt_dir='checkpoint',
           test_behavior=None, test_every=5, delay_pruning = None, weight_pruning=None, lsm=False,
           random_delay_pruning = None, weight_quantization = None, k=None, depth= None, freeze_taus = None, 
-          verbose=True, streamlit=False, clear=False):
+          print_gradient_norms=False, verbose=True, streamlit=False, clear=False):
     """
     lr scale: originally I worked with same (1.0, 1.0 )lr for base (weights)
     tau_m, tau_adp
@@ -130,6 +130,13 @@ def train(snn, train_loader, test_loader, learning_rate, num_epochs, spk_reg=0.0
         if verbose:
             t = time.time() - start_time
             print('Time elasped:', t)
+
+        
+        if print_gradient_norms:
+            for name, param in snn.named_parameters():
+                if param.grad is not None:
+                    grad_norm = param.grad.data.norm(2).item()
+                    print(f"Grad Norm | {name}: {grad_norm:.6f}")
 
         if clear:
             clear_output(wait=True)

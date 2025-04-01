@@ -13,98 +13,26 @@ I'll try to make the models more Pytorch-like.
 Step 1: simplify to the minimum.
 
 CHANGES: 
-- retain_graph = True in loss.backward()
-- clone() in mem update: mem = (mem * alpha * (1 - o_spike)).clone() + self.linear(i_spike)
+v4: added recurrent layer, fixed device selection in surr_scale
+added update logger
+added structure, doesn't work with
 '''
-
-
-# class ActFunBase(torch.autograd.Function):
-#     """
-#     Base activation function class
-
-#     The class implement the forward pass using a Heaviside function as
-#     activation function. This is the usually choose for spiking neural
-#     networks. The backward pass is only initialized, this method will be
-#     rewritten with the surrogate gradient function in the child classes.
-#     """
-
-#     @staticmethod
-#     def forward(ctx, input_data, scale_factor):
-#         """
-#         Forward pass
-
-#         Take as input the tensor input_data (in general, the membrane
-#         potential - threshold) and return a tensor with the same dimension
-#         as input_data whose elements are 1.0 if the corresponding element in
-#         input_data is greater than 0.0, and 0.0 otherwise.
-
-#         The input parameter ctx is a context object that can be used to stash
-#         information for backward computation.
-#         """
-#         ctx.save_for_backward(input_data, scale_factor)
-#         return input_data.gt(0.0).float()
-
-#     @staticmethod
-#     def backward(ctx, grad_output):
-#         """
-#         Backward pass (this method will be rewritten with the surrogate
-#         gradient function)
-#         """
-#         pass
-
-
-# class ActFunFastSigmoid(ActFunBase):
-#     """
-#     Fast-sigmoid activation function class
-
-#     It inherits methods from the ActFunBase class and rewrite the backward
-#     method to include a surrogate gradient function.
-
-#     Surrogate gradient function: Normalized negative part of a fast sigmoid
-#     function (Reference: Zenke & Ganguli (2018))
-#     """
-#     def __init__(self):
-#         """
-#         Initialization of the activation function
-#         """
-#         super(ActFunBase, self).__init__()
-
-#     @staticmethod
-#     def backward(ctx, grad_output):
-#         """
-#         Backward pass
-
-#         Surrogate gradient function: Normalized negative part of a fast
-#         sigmoid function
-
-#         The parameter 'scale' controls steepness of surrogate gradient.
-#         """
-#         # scale = 10.0
-
-#         input_data, scale = ctx.saved_tensors
-#         grad_input = grad_output.clone()
-
-#         grad = grad_input / (scale*torch.abs(input_data) + 1.0) ** 2
-#         return grad, None
-
 
 ### AI-condensed
 class ActFunFastSigmoid(torch.autograd.Function):
     @staticmethod
-    def forward(ctx, input_data, scale_factor):
-        ctx.save_for_backward(input_data, scale_factor)
+    def forward(ctx, input_data):
+        ctx.save_for_backward(input_data)
         # Return a binary spike: 1 if input_data > 0, else 0
         return (input_data > 0).float()
     
     @staticmethod
     def backward(ctx, grad_output):
-        input_data, scale = ctx.saved_tensors
+        input_data, = ctx.saved_tensors
         grad_input = grad_output.clone()
         # Surrogate gradient: normalized negative part of a fast sigmoid
-        grad = grad_input / (scale * torch.abs(input_data) + 1.0) ** 2
+        grad = grad_input / (10.0 * torch.abs(input_data) + 1.0) ** 2
         return grad, None
-
-
 
 class Training:
     """
@@ -179,6 +107,12 @@ class Training:
             # outputs = outputs/self.win   #normalized         
             outputs = torch.sum(torch.stack(all_o_spikes, dim=1), dim = 1)/self.win
 
+        elif l_f == 'mem_prediction':
+            perc = 0.9
+            start_time = int(perc * self.win)
+            a_o_m = all_o_mems[start_time:]
+            outputs = torch.mean(torch.stack(a_o_m, dim=1), dim = 1)
+
         return outputs, labels
 
 
@@ -226,17 +160,22 @@ class Training:
             total += labels.size(0)
 
             # Calculate gradients and optimize to update weights
-            loss.backward(retain_graph=True)
+            #loss.backward(retain_graph=True)
+            loss.backward()
             optimizer.step()
             #scheduler.step()
             scheduler.step(self.epoch + i / num_iter)
 
-            if (i + 1) % int(num_iter / 3.0) == 0:
-                print('Step [%d/%d], Loss: %.5f'
-                        % (
-                            i + 1,
-                            self.num_train_samples // self.batch_size,
-                            running_loss), flush=True)
+            should_print = (
+                (num_iter >= 3 and (i + 1) % int(num_iter / 3.0) == 0) or
+                (num_iter < 3 and (i + 1) % num_iter == 0)
+            )
+
+            if should_print:
+                progress = f"Step [{i + 1}/{self.num_train_samples // self.batch_size}]"
+                print(f"{progress}, Loss: {running_loss:.5f}", flush=True)
+                #print(f"l1_score: {l1_score}")
+
 
             # Reset running loss
             running_loss = 0
@@ -326,10 +265,9 @@ class Training:
         return all_refs, all_preds
 
 
-class AbstractSNNLayer:
+class AbstractSNNLayer(nn.Module):
 
     act_fun = ActFunFastSigmoid.apply
-    surr_scale = torch.tensor([10.0], requires_grad=False, device="cuda:0")
 
     @staticmethod
     def alpha_sigmoid(tau):
@@ -343,48 +281,55 @@ class AbstractSNNLayer:
 
         th_reset = thresh # reset membrane when it reaches thresh
 
-        o_spike = self.act_fun(mem-thresh, self.surr_scale)
+        o_spike = self.act_fun(mem-thresh)
         mem = mem * (mem < th_reset)
 
         return mem, o_spike
+    
+    def forward(self, prev_spikes, own_mems, own_spikes):
+        '''
+        returns the mem and spike state
+        '''
 
-class FeedforwardSNNLayer(nn.Module, AbstractSNNLayer):
+        # propagate previous spikes (wheter on simple or extended form)
+        # update_mem(spikes_from_previous_layer, own_spikes, own_mems, threshols)
+        mems, spikes = self.update_mem(
+            prev_spikes.reshape(self.batch_size, -1), own_spikes, own_mems, self.thresh)
+
+        return mems, spikes
+    
+    def update_mem(self, i_spike, o_spike, mem, thresh):
+        """Child classes must implement this."""
+        pass
+
+class FeedforwardSNNLayer(AbstractSNNLayer):
 
     '''
     advances a single timestep of a feedforward layer, with or without delays
     '''
 
-    def __init__(self, num_in, num_out, tau_m, batch_size, inf_th = False, device = None):
+    def __init__(self, num_in, num_out, tau_m, batch_size, inf_th = False, device = None, fanin_delays = None):
         '''
-        initialize layer type, taus, etc
-        prev_spikes: spikes from previous layer
-        self.spikes spikes from current layer, and output spikes
-        self.mems, mems from current layer
-        delayed_spike_queue: to be filled with spike history from previous layer
         '''
         super().__init__()
-        self.linear = nn.Linear(num_in, num_out, bias=False)
+
+        self.pre_delays = fanin_delays is not None
+        if self.pre_delays:
+            self.delays = fanin_delays
+            self.max_d = self.delays[-1] + 1
+            self.linear = nn.Linear(num_in*len(fanin_delays), num_out, bias=False)
+        else:
+            self.linear = nn.Linear(num_in, num_out, bias=False)
+        
+        self.num_in = num_in
+        self.num_out = num_out
+
         self.tau_m = tau_m
         self.batch_size = batch_size
         self.device = device
 
-        if inf_th:
-            self.thresh = 1e6
-        else:
-            self.thresh = 0.3
+        self.thresh = 1e6 if inf_th else 0.3
 
-        # self.register_buffer("spikes", torch.zeros(
-        #         self.batch_size, num_out, device=self.device)) 
-        # self.register_buffer("mems", torch.zeros(
-        #         self.batch_size, num_out, device=self.device)) 
-
-        self.spikes = torch.zeros(
-                self.batch_size, num_out, device=self.device)
-        self.mems = torch.zeros(
-                self.batch_size, num_out, device=self.device)
-
-
-    # TODO: Set attributes tau_idx and w_idx
     def update_mem(self, i_spike, o_spike, mem, thresh):
 
         """
@@ -398,148 +343,69 @@ class FeedforwardSNNLayer(nn.Module, AbstractSNNLayer):
         :return: A tuple with the membrane potential and output spike updated.
         """
 
-        # # Set alpha value to membrane potential decay
-        # alpha = self.alpha_sigmoid(self.tau_m).to(self.device)
-
-        # # Calculate the new membrane potential and output spike
-        # new_mem = mem.clone() * alpha * (1 - o_spike) + self.linear(i_spike)
-        # mem_out, o_spike_out = self.activation_function(new_mem, thresh)
-
-        # return mem_out, o_spike_out
-
         # Set alpha value to membrane potential decay
         alpha = self.alpha_sigmoid(self.tau_m).to(self.device)
 
         # Calculate the new membrane potential and output spike
         mem = mem * alpha * (1 - o_spike) + self.linear(i_spike)
 
-        return self.activation_function(mem, thresh, self.th_reset)
+        return self.activation_function(mem, thresh)
 
 
+class RecurrentSNNLayer(AbstractSNNLayer):
 
-    def forward(self, prev_spikes):
+    '''
+    advances a single timestep of a recurrent layer, with or without delays
+    implemented delays only in the fanin connections, not in the recurrent ones.
+    '''
+
+    def __init__(self, num_in, num_out, tau_m, batch_size, inf_th = False, device = None, fanin_delays = None):
         '''
-        returns the mem and spike state
         '''
+        super().__init__()
 
-        spikes_local = self.spikes.detach().clone()
-
-        # propagate previous spikes (wheter on simple or extended form)
-        mems, spikes = self.update_mem(
-            prev_spikes.reshape(self.batch_size, -1), spikes_local, self.mems, self.thresh)
+        self.pre_delays = fanin_delays is not None
+        if self.pre_delays:
+            self.delays = fanin_delays
+            self.max_d = self.delays[-1] + 1
+            self.linear = nn.Linear(num_in*len(fanin_delays), num_out, bias=False)
+            self.linear_rec = nn.Linear(num_out, num_out, bias=False)
+        else:
+            self.linear = nn.Linear(num_in, num_out, bias=False)
+            self.linear_rec = nn.Linear(num_out, num_out, bias=False)
         
-        self.mems = mems
-        self.spikes = spikes
+        self.num_in = num_in
+        self.num_out = num_out
 
-#         return self.spikes
+        self.tau_m = tau_m
+        self.batch_size = batch_size
+        self.device = device
 
+        self.thresh = 1e6 if inf_th else 0.3
 
-# # AI 
-# class AbstractSNNLayer:
-#     # Use the surrogate gradient activation function.
-#     act_fun = ActFunFastSigmoid.apply
-#     # Instead of hardcoding device="cuda:0", we define surr_scale without a device.
-#     surr_scale = torch.tensor([10.0], requires_grad=False, device="cuda:0")
-    
-#     @staticmethod
-#     def alpha_sigmoid(tau):
-#         # Decay function for the membrane potential.
-#         return torch.sigmoid(tau)
-    
-#     def activation_function(self, mem, thresh):
-#         """
-#         Applies the activation function using a surrogate gradient for the spiking mechanism.
-        
-#         Parameters:
-#             mem (Tensor): Membrane potential.
-#             thresh (float): Threshold value.
-            
-#         Returns:
-#             mem_out (Tensor): Updated membrane potential after reset.
-#             o_spike (Tensor): Output spikes.
-#         """
-#         # Compute the spike output using the surrogate gradient.
-#         o_spike = self.act_fun(mem - thresh, self.surr_scale)
-#         # Create a mask where the membrane is below threshold.
-#         mask = (mem < thresh).float()
-#         # Compute new membrane potential without in-place modification.
-#         mem_out = mem * mask
-#         return mem_out, o_spike
+    def update_mem(self, i_spike, o_spike, mem, thresh):
 
-# # AI
-# class FeedforwardSNNLayer(nn.Module, AbstractSNNLayer):
-#     """
-#     Advances a single timestep of a feedforward SNN layer.
-#     """
-#     def __init__(self, num_in, num_out, tau_m, batch_size, inf_th=False, device=None):
-#         """
-#         Parameters:
-#             num_in (int): Number of input neurons.
-#             num_out (int): Number of output neurons.
-#             tau_m (float or Tensor): Membrane time constant parameter.
-#             batch_size (int): Batch size.
-#             inf_th (bool): If True, sets a very high threshold.
-#             device (torch.device or None): Device for computations.
-#         """
-#         super(FeedforwardSNNLayer, self).__init__()
-#         self.linear = nn.Linear(num_in, num_out, bias=False)
-#         self.tau_m = tau_m
-#         self.batch_size = batch_size
-#         self.device = device if device is not None else torch.device('cpu')
-        
-#         # Set threshold: high value if inf_th is True, else a defined threshold.
-#         self.thresh = 1e6 if inf_th else 0.3
-        
-#         # Initialize the internal state.
-#         # Here, we use standard attributes (not registered buffers) to update state between timesteps.
-#         self.spikes = torch.zeros(self.batch_size, num_out, device=self.device)
-#         self.mems = torch.zeros(self.batch_size, num_out, device=self.device)
-    
-#     def update_mem(self, i_spike, o_spike, mem, thresh):
-#         """
-#         Updates the membrane potential considering the previous state and input spikes.
-        
-#         Parameters:
-#             i_spike (Tensor): Input spikes (reshaped).
-#             o_spike (Tensor): Previous output spikes.
-#             mem (Tensor): Previous membrane potential.
-#             thresh (float): Threshold value.
-            
-#         Returns:
-#             mem_out (Tensor): Updated membrane potential.
-#             o_spike_out (Tensor): Updated spikes.
-#         """
-#         # Compute the decay factor.
-#         alpha = self.alpha_sigmoid(self.tau_m).to(self.device)
-#         # Compute new membrane potential without in-place modification.
-#         new_mem = mem.clone() * alpha * (1 - o_spike) + self.linear(i_spike)
-#         # Apply the activation function (spiking and reset).
-#         mem_out, o_spike_out = self.activation_function(new_mem, thresh)
-#         return mem_out, o_spike_out
-    
-#     def forward(self, prev_spikes):
-#         """
-#         Forward pass for one timestep.
-        
-#         Parameters:
-#             prev_spikes (Tensor): Spikes from the previous layer.
-            
-#         Returns:
-#             Tensor: Updated output spikes.
-#         """
-#         # Reshape the input spikes as needed.
-#         reshaped_spikes = prev_spikes.reshape(self.batch_size, -1)
-#         # Update membrane potential and spike states.
-#         mem_local = self.mems.clone().detach()
-#         spikes_local = self.spikes.clone().detach()
-#         mem_out, spike_out = self.update_mem(reshaped_spikes, spikes_local, mem_local, self.thresh)
-#         # Update internal state.
-#         self.mems = mem_out
-#         self.spikes = spike_out
-#         return self.spikes
+        """
+        Function to update the membrane potential of the output layer. It takes
+        into account the spikes coming from the hidden layer.
 
+        :param i_spike: Input spike of the neuron.
+        :param o_spike: Output spike of the neuron.
+        :param mem: Membrane potential of the neuron.
 
+        :return: A tuple with the membrane potential and output spike updated.
+        """
 
+        # Set alpha value to membrane potential decay
+        alpha = self.alpha_sigmoid(self.tau_m).to(self.device)
+
+        # Calculate the new membrane potential and output spike
+        a = self.linear(i_spike)  # From input spikes
+        b = self.linear_rec(o_spike)    # From recurrent spikes
+        c = mem * alpha * (1-o_spike)   # From membrane potential decay
+        mem = a + b + c
+
+        return self.activation_function(mem, thresh)
 
 class SNN(Training, nn.Module):
     """
@@ -549,8 +415,13 @@ class SNN(Training, nn.Module):
     without delays. It inherits from nn.Module.
     """
 
-    def __init__(self, dataset_dict, num_hidden = 64, tau_m='normal', win=50,
-                 loss_fn='mem_sum', batch_size=256, device='cuda'):
+    def __init__(self, dataset_dict, structure = (64, 2, 'f'), delay_dict = None, tau_m='normal', win=50,
+                 loss_fn='mem_sum', batch_size=256, device='cuda', debug=True):
+        
+        '''
+        structure: either (num_neurons, num_hidden_layers, connection_type)
+        or (soon to be implemented) a list with specific configuration e.g d64f_64r
+        '''
  
         super(SNN, self).__init__()
         
@@ -559,12 +430,13 @@ class SNN(Training, nn.Module):
 
         # Set attributes from inputs
         self.dataset_dict = dataset_dict
-        self.num_hidden = num_hidden
+        self.structure = structure
         self.tau_m = tau_m
         self.win = win        
         self.loss_fn = loss_fn
         self.batch_size = batch_size
         self.device = device
+        self.debug = debug
 
         self.time_win = win  # win: the time of data, time_win the time of training
 
@@ -603,46 +475,160 @@ class SNN(Training, nn.Module):
         self.num_input = self.dataset_dict['num_input']
         self.num_output = self.dataset_dict['num_output']
 
+        # # simulation time-step
+        # self.step = -1
+
+        self.model_name = ''
+
         # set loss function
         if self.loss_fn == 'spk_count':
             self.criterion = nn.MSELoss()
         elif self.loss_fn == 'mem_mot' or self.loss_fn == 'mem_sum' or self.loss_fn == 'mem_last':
             self.criterion = nn.CrossEntropyLoss()
-
+            self.nonfiring_output = True
+        elif self.loss_fn == 'mem_prediction':
+            self.criterion = nn.MSELoss()
+            self.nonfiring_output = True  # Output neurons never fire
+            
         self.to(self.device)    
 
 
     def set_layers(self):
 
-        num_in = self.num_input # in this example it's 700
+        '''
+        quick option: a tuple of (num_hidden, num_layers, layer_type)
+        '''
 
-        num_h = 64
+        num_in = self.num_input
+        num_h = self.structure[0]
+        num_o = self.num_output 
 
-        num_o = self.num_output # in this example it's 20
+        num_hidden_layers = self.structure[1]
+        layer_type = self.structure[2]
 
-        l1 = FeedforwardSNNLayer(num_in, 
-                                 num_h, 
-                                 self.get_tau_m(num_h), 
-                                 self.batch_size, 
-                                 False,
-                                 self.device)
+        self.layers = nn.ModuleList()
+
+        # input layer:
+
+        kwargs = {'num_in': num_in, 
+                  'num_out': num_h,  
+                  'batch_size': self.batch_size, 
+                  'device': self.device}
         
-        l2 = FeedforwardSNNLayer(num_h,
-                                 num_h, 
-                                 self.get_tau_m(num_h),
-                                 self.batch_size, 
-                                 False,
-                                 self.device)
-        
-        l3 = FeedforwardSNNLayer(num_h, 
-                                 num_o, 
-                                 self.get_tau_m(num_o),
-                                 self.batch_size,
-                                 True, 
-                                 self.device)
+        ## input and hidden layers
+        for h_layer in range(num_hidden_layers):
+            
+            if h_layer>0:
+                kwargs['num_in'] = num_h
+            
+            kwargs['tau_m'] = self.get_tau_m(num_h)
 
-        # 2 feedforwards
-        self.layers = nn.ModuleList([l1, l2, l3])
+            if layer_type == 'r':
+                self.layers.append(RecurrentSNNLayer(**kwargs))
+            elif layer_type == 'f':
+                self.layers.append(FeedforwardSNNLayer(**kwargs))
+
+        ## output layer is always feedforward
+        kwargs['num_in'] = num_h
+        kwargs['num_out'] = num_o
+        kwargs['inf_th'] = self.nonfiring_output
+        kwargs['tau_m'] = self.get_tau_m(num_o)
+        self.layers.append(FeedforwardSNNLayer(**kwargs))
+            
+        self.init_state_logger()
+
+
+    def init_state(self):
+
+        '''
+        Initially, I let the states to be initialized at __init__
+        but they were added to the compute graph, I had to clone().detach()
+        them before feeding them to update_mem, 
+        and add retain_graph in the backward pass, hurting performance.
+        Now, as in the previous version, the states are completely independent of the
+        layer graph, they act just as external inputs.
+        '''
+
+        mems = dict()
+        spikes = dict()
+        queued_spikes = dict()
+
+        for i, layer in enumerate(self.layers):
+            
+            num_neurons = layer.num_out
+            num_in = layer.num_in
+            
+            if i == len(self.layers)-1:
+                name = 'output'
+            else:
+                name = 'l' + str(i+1)
+
+            mems[name] = torch.zeros(
+                self.batch_size, num_neurons, device=self.device)
+            spikes[name] = torch.zeros(
+                self.batch_size, num_neurons, device=self.device)
+            
+            if layer.pre_delays:
+                max_d = layer.max_d
+                queued_spikes[name] = torch.zeros(
+                    self.batch_size,  max_d+1, num_in, device=self.device)
+
+        return mems, spikes, queued_spikes
+
+    def init_state_logger(self):
+
+        # Initialization of the dictionary to log the state of the
+        # network if debug is activated
+        setattr(self, 'mem_state', dict())
+        setattr(self, 'spike_state', dict())        
+
+        if self.debug:
+            self.spike_state['input'] = torch.zeros(
+                self.win, self.batch_size,
+                self.num_input, device=self.device)
+            
+        for i, layer in enumerate(self.layers):
+
+            num_neurons = layer.num_out
+
+            if i == len(self.layers)-1:
+                name = 'output'
+            else:
+                name = 'l' + str(i+1)
+
+            self.mem_state[name] = torch.zeros(
+                self.win, self.batch_size,
+                num_neurons, device=self.device)
+            self.spike_state[name] = torch.zeros(
+                self.win, self.batch_size,
+                num_neurons, device=self.device)
+
+
+    def update_logger(self, *args):
+        """
+        Function to log the parameters if debug is activated. It creates a
+        dictionary with the state of the neural network, recording the values
+        of the spikes and membrane voltage for the input, hidden and output
+        layers.
+
+        This function takes as arguments the parameters of the network to log.
+        """
+
+        # Create the dictionary for logging
+        if self.debug:
+            inpt, mems, spikes, step = args
+
+            self.spike_state['input'][step, :, :] = inpt
+
+            for i in range(len(self.layers)):
+
+                if i == len(self.layers)-1:
+                    name = 'output'
+                else:
+                    name = 'l' + str(i+1)
+
+                self.mem_state[name][step, :, :] = mems[name]
+                self.spike_state[name][step, :, :] = spikes[name]
 
     def get_tau_m(self, num_neurons):
 
@@ -671,20 +657,46 @@ class SNN(Training, nn.Module):
                         mean * torch.ones(num_neurons),
                         std * torch.ones(num_neurons)).sample())
 
+    @staticmethod
+    def update_queue(tensor, data):
+        '''
+        for tensors of dimensions (batch_size, num_timesteps, num_neurons)
+        '''
+        # nice way
+        tensor = torch.cat((tensor[:, -1:, :], tensor[:, :-1, :]), dim=1) # shif to the right
+        tensor[:, 0, :] = data
+
+        return tensor
+
     def forward(self, input):
     
         all_o_mems = []
         all_o_spikes = []    
+
+        mems, spikes, queued_spikes = self.init_state()
         
         for step in range(self.win):
 
-            spikes = input[:, step, :].view(self.batch_size, -1)
+            prev_spikes = input[:, step, :].view(self.batch_size, -1)
 
-            for layer in self.layers:
-                spikes = layer(spikes).clone()  # Each layer updates its own activations
+            for layer, key in zip(self.layers, spikes.keys()):
+
+                if layer.pre_delays:
+                    queued_spikes[key] = self.update_queue(queued_spikes[key], prev_spikes)
+                    #prev_spikes = queued_spikes[key][:, layer.delays, :].transpose(1, 2).clone().detach() # is transpose necessary?
+                    prev_spikes = queued_spikes[key][:, layer.delays, :].transpose(1, 2)
+
+                mems[key], spikes[key] = layer(prev_spikes, mems[key], spikes[key]) 
+                prev_spikes = spikes[key]
             
-            # last layer
-            all_o_mems.append(self.layers[-1].mems.clone())
-            all_o_spikes.append(self.layers[-1].spikes.clone())
+            # store results
+            self.update_logger(input[:, step, :].view(self.batch_size, -1), mems, spikes, step)
+
+            # append results to activation list
+            all_o_mems.append(mems[key])
+            all_o_spikes.append(spikes[key])
 
         return all_o_mems, all_o_spikes
+    
+    def save_model(self, ckpt_dirs, name):
+        pass

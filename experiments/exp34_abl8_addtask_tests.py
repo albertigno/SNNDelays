@@ -12,7 +12,7 @@ device = get_device()
 time_window = 50
 batch_size = 128 # 128: anil kag
 
-ckpt_dir = 'abl8_addtask_st_no_delay_type'
+ckpt_dir = 'abl8_addtask_mt_no_delay_type'
 #ckpt_dir = 'abl8_addtask_mt'
 #ckpt_dir = 'abl8_addtask_lt'
 
@@ -20,8 +20,8 @@ dataset = 'addtask_episodic'
 
 DL = DatasetLoader(dataset=dataset, caching='', num_workers=0, batch_size=batch_size, total_time=time_window)
 train_loader, test_loader, dataset_dict = DL.get_dataloaders()
-dataset_dict["time_ms"] = 2e3
-#dataset_dict["time_ms"] = 150
+#dataset_dict["time_ms"] = 2e3
+dataset_dict["time_ms"] = 150
 #dataset_dict["time_ms"] = 5
 
 model_params = {'dataset_dict': dataset_dict, 'delay_type':'',
@@ -32,42 +32,42 @@ model_params = {'dataset_dict': dataset_dict, 'delay_type':'',
 #lr_tau = 0.01 # default
 lr_tau = 0.1 # variation for small tau
 
-train_params = {'learning_rate':1e-3, 'num_epochs':5000, 'spk_reg':0.0, 'l1_reg':0.0,
+train_params = {'learning_rate':1e-3, 'num_epochs':3000, 'spk_reg':0.0, 'l1_reg':0.0,
           'dropout':0.0, 'lr_tau': lr_tau, 'scheduler':(100, 0.95), 'ckpt_dir':ckpt_dir,
           'test_behavior':tb_addtask, 'test_every':100, 'delay_pruning':None, 'weight_pruning':None,
           'lsm':False, 'random_delay_pruning' : None, 'weight_quantization': None, 'k':None, 'depth': None, 'verbose':False}
 
 #parameters to join: value lists must have the same length
 
-# union = {
-#     'connection_type': ['r', 'mf', 'f', 'f'], 
-#     'delay': [None, None, None, (40, 1)],
-#     'delay_type': ['', '', '', 'h']
-# }
-
-# union_keys = [*union.keys()]
-
-# sweep_params_names = {
-#     'U_1': ['rnn','mf', 'f', 'rd'],
-#     'structure':['2l'],
-#     'tau_m':['ht'],
-#     'T_freeze_taus':['tt']
-#     }
-
 union = {
-    'connection_type': [ 'f'], 
-    'delay': [(40, 1)],
-    'delay_type': ['h']
+    'connection_type': ['r', 'mf', 'f', 'f'], 
+    'delay': [None, None, None, (40, 1)],
+    'delay_type': ['', '', '', 'h']
 }
 
 union_keys = [*union.keys()]
 
 sweep_params_names = {
-    'U_1': ['rd'],
+    'U_1': ['rnn','mf', 'f', 'rd'],
     'structure':['2l'],
     'tau_m':['ht'],
     'T_freeze_taus':['tt']
     }
+
+# union = {
+#     'connection_type': [ 'f'], 
+#     'delay': [(40, 1)],
+#     'delay_type': ['h']
+# }
+
+# union_keys = [*union.keys()]
+
+# sweep_params_names = {
+#     'U_1': ['rd'],
+#     'structure':['2l'],
+#     'tau_m':['ht'],
+#     'T_freeze_taus':['tt']
+#     }
 
 sweep_params = {
     'U_1': list(zip(*union.values())),

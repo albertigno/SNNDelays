@@ -215,7 +215,8 @@ class AddTaskDataset(Dataset):
 
         # Set label
         lbl = seq[idx_a, 0] + seq[idx_b, 0]
-        label = lbl.item() * torch.ones([int(0.2 * seq_len), 1], dtype=torch.int32)
+        label = lbl.item() * torch.ones([int(0.1 * seq_len), 1], dtype=torch.int32)
+
         return seq.clone().detach(), label.clone().detach()
     
     def get_train_attributes(self):
@@ -227,6 +228,108 @@ class AddTaskDataset(Dataset):
 
         train_attrs = {'num_input': 2,
                        'num_training_samples': self.dataset_size,
+                       'num_output': 1}
+
+        return train_attrs
+
+
+
+class CopyMemoryDataset(Dataset):
+    """
+    Copy Memory Dataset class
+
+    The input samples consist of a one-dimensional sequence with length
+    seq_length + 2 * mem_length + 1 where the first mem_length values are chosen
+    randomly from the integers [1, 8]; mem_length + 1 digits have value 9 starting 
+    at a random position in the second half of the sequence; and the rest of the
+    sequence is filled with zeros.
+
+    The target labels consists of a one-dimensional sequence with the same
+    length as the input sequence that is zero everywhere except the last
+    mem_length values, which the first mem_length values of the input sequence
+    are copied (memorized).
+    """
+
+    def __init__(self, seq_length=50, dataset_size=128, randomness=False):
+        """
+        Initialization of Dataset
+
+        :param n_samples: Number of samples in the dataset
+        :param seq_length: Length of the input sequence
+        nines to delimiter the position where them have to be copied
+        :param mem_length: Number of digits to memorize
+        """
+        super(CopyMemoryDataset, self).__init__()
+
+        self.seq_length = seq_length
+        self.mem_length = int(0.1*seq_length)
+        self.dataset_size = dataset_size
+        self.randomness = randomness
+
+    def __len__(self):
+        """
+        The number of samples in the dataset
+
+        :return: Dataset size
+        """
+        return self.dataset_size
+
+    def __getitem__(self, idx):
+        """
+        Get a sample of the dataset. If the sample index is higher than the
+        number of samples in dataset, it returns an error and stop the
+        execution
+
+        :param idx: Index of the sample to be returned
+        :return: A tuple with the original (sample) and the target (label)
+        sequence
+        """
+        _x, _y = self.create_sample(
+            self.seq_length, self.mem_length, idx, self.randomness)
+        return _x, _y
+
+
+    @staticmethod
+    def create_sample(seq_length, mem_length, idx, rnd):
+        """
+        Create a new sample of the dataset
+
+        :param seq_length: Number of zeros between the digits to memorize
+        and the nines to delimiter the position where them have to be copied.
+        :param mem_length: Number of digits to memorize.
+        :param idx: Index of the sample to be returned.
+        :param rnd: Boolean to set randomness.
+        :return: A tuple with the original (sample) and the target (label)
+        sequence.
+        """
+
+        # Set seed
+        if not rnd:
+            torch.manual_seed(idx)
+            np.random.seed(idx)
+
+        # Initialization of the input and the target (label) sequence
+        seq = torch.zeros([seq_length, 1], dtype=torch.int32)
+        label = torch.randint(1, 9, (1, mem_length)) # random numbers from 1 to 8
+
+        # the time at which the number to memorize appears
+        start_time = torch.randint(high=seq_length//2, size=(1,)).item()
+
+        seq[start_time:start_time + mem_length, 0] = label
+        seq[seq_length-mem_length:, 0] = torch.ones([mem_length, 1], dtype=torch.int32)
+        # Set label (make +1, so the network has time to get ready to
+        # recover the first pattern)
+
+        return seq.clone().detach(), label.clone().detach()
+
+    def get_train_attributes(self):
+        """
+        Function to get these three attributes which are necessary for a
+        correct initialization of the SNNs: num_training samples, num_input,
+        etc. All Dataset should have this, if possible.
+        """
+        train_attrs = {'num_input': 1,
+                       'num_training_samples': len(self),
                        'num_output': 1}
 
         return train_attrs

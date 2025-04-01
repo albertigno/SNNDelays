@@ -4,13 +4,13 @@ import os
 #from snn_delays.utils.utils import calc_metricsç
 from snn_delays.utils.train_utils import get_gradients
 
-def tb_minimal(snn, ckpt_dir, test_loader, dropout, test_every):
+def tb_minimal(snn, ckpt_dir, test_loader, test_every):
     '''
     test every "check_every" and save results only for the nets with best accuracy
     '''
 
     if (snn.epoch) % test_every == 0:
-        snn.test(test_loader, dropout=dropout)
+        snn.test(test_loader)
         max_acc = np.max(np.array(snn.acc)[:,1])
         print(f'max acc: {max_acc}')
 

@@ -236,6 +236,8 @@ class Training:
                 self.scaler.update()
             else:
                 loss.backward()
+                ### GRADIENT CLIPPING!
+                torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm=1.0)
                 optimizer.step()
             #scheduler.step()
             scheduler.step(self.epoch + i / num_iter)
@@ -276,7 +278,7 @@ class Training:
         :param test_loader: Test dataset (default = None)
         :param dropout: Percentage of randomly dropped spikes (applied to the
         input) (default = 0.0)
-        """
+        """  
 
         # Initializing simulation values to track
         correct = 0
