@@ -110,6 +110,14 @@ class DatasetLoader:
                 test_dataset = AddTaskDataset(seq_length=total_time,
                                               dataset_size=batch_size,
                                               randomness=True)
+            elif dataset == 'copymemory_episodic':
+                from snn_delays.datasets.sequential_datasets import CopyMemoryDataset
+                train_dataset = CopyMemoryDataset(seq_length=total_time,
+                                               dataset_size=batch_size,
+                                               randomness=True)
+                test_dataset = CopyMemoryDataset(seq_length=total_time,
+                                              dataset_size=batch_size,
+                                              randomness=True)
             elif dataset == 'addtask':
                 from snn_delays.datasets.sequential_datasets import AddTaskDataset
                 train_dataset = AddTaskDataset(seq_length=total_time,

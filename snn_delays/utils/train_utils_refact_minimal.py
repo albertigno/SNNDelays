@@ -23,7 +23,7 @@ def get_device():
 
 def train(snn, train_loader, test_loader, learning_rate, num_epochs,
           lr_tau=0.1, scheduler=(1, 0.98), ckpt_dir='checkpoint',
-          test_behavior=None, test_every=5, verbose=True, clear=False):
+          test_behavior=None, test_every=5, verbose=True, clear=False, **kwargs):
     """
     lr scale: originally I worked with same (1.0, 1.0 )lr for base (weights)
     tau_m, tau_adp
@@ -54,7 +54,7 @@ def train(snn, train_loader, test_loader, learning_rate, num_epochs,
                                                          current_lr, current_lr_tau), flush=True)
 
 
-        snn.train_step(train_loader, optimizer=optimizer, scheduler = scheduler)        
+        snn.train_step(train_loader, optimizer=optimizer, scheduler = scheduler, **kwargs)        
 
         if verbose:
             t = time.time() - start_time

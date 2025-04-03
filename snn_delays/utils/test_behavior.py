@@ -79,3 +79,21 @@ def tb_addtask(snn, ckpt_dir, test_loader, dropout, test_every):
         #print(f"prediction {pred}, reference {ref}")
         print(f'Mean Error: {loss.item()/len(images)}% ')
         print('--------------------------')
+
+
+def tb_addtask_refact(snn, ckpt_dir, test_loader, test_every):
+    if (snn.epoch) % test_every == 0:
+        #if epoch>=50:
+            #print('pooling delays')
+            #snn.pool_delays('i', k= 10, freeze=False)
+        for images, labels in test_loader:
+            pred, ref = snn.propagate(images.to(snn.device), labels.to(snn.device))
+
+        snn.save_model(snn.model_name, ckpt_dir)
+
+        loss = snn.criterion(pred, ref)
+        #tolerance = 0.04 # a             
+        #correct = torch.sum(abs(pred-ref) < 0.04)
+        #print(f"prediction {pred}, reference {ref}")
+        print(f'Mean Error: {loss.item()/len(images)}% ')
+        print('--------------------------')

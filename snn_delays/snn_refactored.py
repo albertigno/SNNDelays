@@ -117,13 +117,17 @@ class Training:
             perc = 0.9
             start_time = int(perc * self.win)
             a_o_m = all_o_mems[start_time:]
-            outputs = torch.mean(torch.stack(a_o_m, dim=1), dim = 1)
+            # outputs = torch.mean(torch.stack(a_o_m, dim=1), dim = 1)
+            outputs = torch.stack(a_o_m, dim=1).squeeze()
+
+            # print(outputs.shape)
+            # print(labels.shape)
 
         return outputs, labels
 
 
     # TODO: Documentacion
-    def train_step(self, train_loader=None, optimizer=None, scheduler= None):
+    def train_step(self, train_loader=None, optimizer=None, scheduler= None, **kwargs):
         """
         Function for the training of one epoch (over the whole dataset)
 
@@ -147,6 +151,9 @@ class Training:
         num_iter = len(train_loader)
         #sr = spk_reg / self.win
 
+        if 'gradient_clipping' in kwargs:
+            gradient_clipping = kwargs["gradient_clipping"]
+
         # Training loop over the train dataset
         for i, (images, labels) in enumerate(train_loader):
 
@@ -169,6 +176,9 @@ class Training:
             # Calculate gradients and optimize to update weights
             #loss.backward(retain_graph=True)
             loss.backward()
+            if gradient_clipping:
+                torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm=1.0)
+
             optimizer.step()
             #scheduler.step()
             scheduler.step(self.epoch + i / num_iter)

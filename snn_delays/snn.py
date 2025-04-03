@@ -237,7 +237,7 @@ class Training:
             else:
                 loss.backward()
                 ### GRADIENT CLIPPING!
-                torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm=1.0)
+                # torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm=1.0)
                 optimizer.step()
             #scheduler.step()
             scheduler.step(self.epoch + i / num_iter)

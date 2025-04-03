@@ -310,13 +310,13 @@ class CopyMemoryDataset(Dataset):
 
         # Initialization of the input and the target (label) sequence
         seq = torch.zeros([seq_length, 1], dtype=torch.int32)
-        label = torch.randint(1, 9, (1, mem_length)) # random numbers from 1 to 8
+        label = torch.randint(1, 9, (mem_length, 1)) # random numbers from 1 to 8
 
         # the time at which the number to memorize appears
         start_time = torch.randint(high=seq_length//2, size=(1,)).item()
 
-        seq[start_time:start_time + mem_length, 0] = label
-        seq[seq_length-mem_length:, 0] = torch.ones([mem_length, 1], dtype=torch.int32)
+        seq[start_time:start_time + mem_length, 0] = label.T
+        seq[seq_length-mem_length:, 0] = torch.ones([mem_length], dtype=torch.int32)
         # Set label (make +1, so the network has time to get ready to
         # recover the first pattern)
 
