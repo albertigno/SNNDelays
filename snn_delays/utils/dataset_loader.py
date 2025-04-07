@@ -118,12 +118,28 @@ class DatasetLoader:
                 test_dataset = CopyMemoryDataset(seq_length=total_time,
                                               dataset_size=batch_size,
                                               randomness=True)
+            elif dataset == 'copymemory':
+                from snn_delays.datasets.sequential_datasets import CopyMemoryDataset
+                train_dataset = CopyMemoryDataset(seq_length=total_time,
+                                               dataset_size=batch_size,
+                                               randomness=True)
+                test_dataset = CopyMemoryDataset(seq_length=total_time,
+                                              dataset_size=batch_size,
+                                              randomness=False)
             elif dataset == 'addtask':
                 from snn_delays.datasets.sequential_datasets import AddTaskDataset
                 train_dataset = AddTaskDataset(seq_length=total_time,
                                                 dataset_size=batch_size,
                                                 randomness=True)
                 test_dataset = AddTaskDataset(seq_length=total_time,
+                                               dataset_size=batch_size,
+                                               randomness=False)
+            elif dataset == 'multiaddtask':
+                from snn_delays.datasets.sequential_datasets import MultiAddtaskDataset
+                train_dataset = MultiAddtaskDataset(seq_length=total_time,
+                                                dataset_size=batch_size,
+                                                randomness=True)
+                test_dataset = MultiAddtaskDataset(seq_length=total_time,
                                                dataset_size=batch_size,
                                                randomness=False)
             elif dataset == 'custom':
@@ -201,17 +217,22 @@ class DatasetLoader:
         else:
             pass
 
+        if 'shuffle' in kwargs:
+            shuffle = kwargs["shuffle"]
+        else:
+            shuffle = True
+
         # Define train and test loader using DataLoader from torch
         self.train_loader = DataLoader(train_dataset,
                                        batch_size=batch_size,
-                                       shuffle=True,
+                                       shuffle=shuffle,
                                        drop_last=False,
                                        pin_memory=pin_memory,
                                        num_workers=num_workers)
 
         self.test_loader = DataLoader(test_dataset,
                                       batch_size=batch_size,
-                                      shuffle=True,
+                                      shuffle=shuffle,
                                       drop_last=False,
                                       pin_memory=pin_memory,
                                       num_workers=num_workers)

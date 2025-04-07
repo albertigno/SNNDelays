@@ -191,7 +191,7 @@ class AddTaskDataset(Dataset):
         :return: A tuple with the input sample and the target
         """
 
-        # Set seed
+        # Set seed for repeated batches ir rnd=False
         if not rnd:
             torch.manual_seed(idx)
 
@@ -215,7 +215,8 @@ class AddTaskDataset(Dataset):
 
         # Set label
         lbl = seq[idx_a, 0] + seq[idx_b, 0]
-        label = lbl.item() * torch.ones([int(0.1 * seq_len), 1], dtype=torch.int32)
+        #label = lbl.item() * torch.ones([int(0.1 * seq_len), 1], dtype=torch.int32)
+        label = lbl.item() * torch.ones([int(0.1 * seq_len), 1])
 
         return seq.clone().detach(), label.clone().detach()
     
@@ -289,34 +290,27 @@ class CopyMemoryDataset(Dataset):
         return _x, _y
 
 
+    ### V4: COPY TASK WITH multiple output neurons
     @staticmethod
     def create_sample(seq_length, mem_length, idx, rnd):
-        """
-        Create a new sample of the dataset
 
-        :param seq_length: Number of zeros between the digits to memorize
-        and the nines to delimiter the position where them have to be copied.
-        :param mem_length: Number of digits to memorize.
-        :param idx: Index of the sample to be returned.
-        :param rnd: Boolean to set randomness.
-        :return: A tuple with the original (sample) and the target (label)
-        sequence.
-        """
-
-        # Set seed
+        # Set seed for repeated batches ir rnd=False
         if not rnd:
             torch.manual_seed(idx)
-            np.random.seed(idx)
 
         # Initialization of the input and the target (label) sequence
-        seq = torch.zeros([seq_length, 1], dtype=torch.int32)
-        label = torch.randint(1, 9, (mem_length, 1)) # random numbers from 1 to 8
+        seq = torch.zeros([seq_length, 2], dtype=torch.float)
+        label = torch.randint(1, 10, (mem_length, 1)) / 10.0 # random numbers from 0.1 to 0.9
 
         # the time at which the number to memorize appears
         start_time = torch.randint(high=seq_length//2, size=(1,)).item()
 
-        seq[start_time:start_time + mem_length, 0] = label.T
-        seq[seq_length-mem_length:, 0] = torch.ones([mem_length], dtype=torch.int32)
+        seq[start_time:start_time + mem_length, 0] = label.T.clone().detach()
+        
+        seq[seq_length-mem_length:, 1] = torch.ones([mem_length])
+        
+        label = label.expand(-1, mem_length).T
+
         # Set label (make +1, so the network has time to get ready to
         # recover the first pattern)
 
@@ -328,11 +322,127 @@ class CopyMemoryDataset(Dataset):
         correct initialization of the SNNs: num_training samples, num_input,
         etc. All Dataset should have this, if possible.
         """
-        train_attrs = {'num_input': 1,
-                       'num_training_samples': len(self),
-                       'num_output': 1}
+        train_attrs = {'num_input': 2,
+                       'num_training_samples': self.dataset_size,
+                       'num_output': self.mem_length}
 
         return train_attrs
+
+    ### V3
+    # @staticmethod
+    # def create_sample(seq_length, mem_length, idx, rnd):
+    #     """
+    #     Create a new sample of the dataset
+
+    #     :param seq_length: Number of zeros between the digits to memorize
+    #     and the nines to delimiter the position where them have to be copied.
+    #     :param mem_length: Number of digits to memorize.
+    #     :param idx: Index of the sample to be returned.
+    #     :param rnd: Boolean to set randomness.
+    #     :return: A tuple with the original (sample) and the target (label)
+    #     sequence.
+    #     """
+
+    #     # Set seed for repeated batches ir rnd=False
+    #     if not rnd:
+    #         torch.manual_seed(idx)
+
+    #     # Initialization of the input and the target (label) sequence
+    #     seq = torch.zeros([seq_length, 2], dtype=torch.float)
+    #     label = torch.randint(1, 10, (mem_length, 1)) / 10.0 # random numbers from 0.1 to 0.9
+
+    #     # the time at which the number to memorize appears
+    #     start_time = torch.randint(high=seq_length//2, size=(1,)).item()
+
+    #     seq[start_time:start_time + mem_length, 0] = label.T.clone().detach()
+        
+    #     seq[seq_length-mem_length:, 1] = torch.ones([mem_length])
+        
+    #     # Set label (make +1, so the network has time to get ready to
+    #     # recover the first pattern)
+
+    #     return seq.clone().detach(), label.clone().detach()
+
+    # def get_train_attributes(self):
+    #     """
+    #     Function to get these three attributes which are necessary for a
+    #     correct initialization of the SNNs: num_training samples, num_input,
+    #     etc. All Dataset should have this, if possible.
+    #     """
+    #     train_attrs = {'num_input': 2,
+    #                    'num_training_samples': self.dataset_size,
+    #                    'num_output': 1}
+
+    #     return train_attrs
+
+
+
+class MultiAddtaskDataset(CopyMemoryDataset):
+
+    ### ONE SET
+    # @staticmethod
+    # def create_sample(seq_length, mem_length, idx, rnd):
+
+    #     # Set seed for repeated batches ir rnd=False
+    #     if not rnd:
+    #         torch.manual_seed(idx)
+
+    #     # Initialization of the input and the target (label) sequence
+    #     seq = torch.zeros([seq_length, 2], dtype=torch.float)
+    #     label = torch.randint(1, 10, (mem_length, 1)) / 10.0 # random numbers from 0.1 to 0.9
+
+    #     # the time at which the number to memorize appears
+    #     start_time = torch.randint(high=seq_length//2, size=(1,)).item()
+
+    #     seq[start_time:start_time + mem_length, 0] = label.T.clone().detach()
+        
+    #     seq[seq_length-mem_length:, 1] = torch.ones([mem_length])
+        
+    #     # Sum all elements of 'label' to create a new label, normalize so the max is 2 (as in add task)
+    #     lbl = 2.0*torch.sum(label)/(0.9*mem_length)
+    #     #label = lbl.item() * torch.ones([int(0.1 * seq_len), 1], dtype=torch.int32)
+    #     label = lbl.item() * torch.ones([mem_length, 1])
+
+    #     # Set label (make +1, so the network has time to get ready to
+    #     # recover the first pattern)
+
+    #     return seq.clone().detach(), label.clone().detach()
+
+
+    ### TWO SETS
+    @staticmethod
+    def create_sample(seq_length, mem_length, idx, rnd):
+
+        # Set seed for repeated batches ir rnd=False
+        if not rnd:
+            torch.manual_seed(idx)
+
+        # Initialization of the input and the target (label) sequence
+        seq = torch.zeros([seq_length, 2], dtype=torch.float)
+        label_1 = torch.randint(1, 10, (mem_length, 1)) / 10.0 # random numbers from 0.1 to 0.9
+        label_2 = torch.randint(1, 10, (mem_length, 1)) / 10.0 # random numbers from 0.1 to 0.9
+
+        # the time at which the number to memorize appears
+        half_seq = int(0.8*seq_length/2) - mem_length
+        end_seq = int(0.8*seq_length) - mem_length
+        start_time_1 = torch.randint(high=half_seq, size=(1,)).item()
+        start_time_2 = torch.randint(low=half_seq+mem_length, high=end_seq, size=(1,)).item()
+
+        seq[start_time_1:start_time_1 + mem_length, 0] = label_1.T.clone().detach()
+        seq[start_time_2:start_time_2 + mem_length, 0] = label_2.T.clone().detach()
+
+        seq[seq_length-mem_length:, 1] = torch.ones([mem_length])
+        
+        # Sum all elements of 'labels' to create a new label, normalize so the max is 2 (as in add task)
+        lbl = torch.sum(label_1 + label_2)/(0.9*mem_length)
+        #label = lbl.item() * torch.ones([int(0.1 * seq_len), 1], dtype=torch.int32)
+        label = lbl.item() * torch.ones([mem_length, 1])
+
+        # Set label (make +1, so the network has time to get ready to
+        # recover the first pattern)
+
+        return seq.clone().detach(), label.clone().detach()
+
 
 
 

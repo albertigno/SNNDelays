@@ -114,6 +114,7 @@ class Training:
             outputs = torch.sum(torch.stack(all_o_spikes, dim=1), dim = 1)/self.win
 
         elif l_f == 'mem_prediction':
+
             perc = 0.9
             start_time = int(perc * self.win)
             a_o_m = all_o_mems[start_time:]
@@ -153,6 +154,8 @@ class Training:
 
         if 'gradient_clipping' in kwargs:
             gradient_clipping = kwargs["gradient_clipping"]
+        else:
+            gradient_clipping = False
 
         # Training loop over the train dataset
         for i, (images, labels) in enumerate(train_loader):
