@@ -111,17 +111,19 @@ class DatasetLoader:
                                               dataset_size=batch_size,
                                               randomness=True)
             elif dataset == 'copymemory_episodic':
+                dataset_size = kwargs['dataset_size']
                 from snn_delays.datasets.sequential_datasets import CopyMemoryDataset
                 train_dataset = CopyMemoryDataset(seq_length=total_time,
-                                               dataset_size=batch_size,
+                                               dataset_size=dataset_size,
                                                randomness=True)
                 test_dataset = CopyMemoryDataset(seq_length=total_time,
                                               dataset_size=batch_size,
                                               randomness=True)
             elif dataset == 'copymemory':
                 from snn_delays.datasets.sequential_datasets import CopyMemoryDataset
+                dataset_size = kwargs['dataset_size']
                 train_dataset = CopyMemoryDataset(seq_length=total_time,
-                                               dataset_size=batch_size,
+                                               dataset_size=dataset_size,
                                                randomness=True)
                 test_dataset = CopyMemoryDataset(seq_length=total_time,
                                               dataset_size=batch_size,
@@ -136,12 +138,13 @@ class DatasetLoader:
                                                randomness=False)
             elif dataset == 'multiaddtask':
                 from snn_delays.datasets.sequential_datasets import MultiAddtaskDataset
+                dataset_size = kwargs['dataset_size']
                 train_dataset = MultiAddtaskDataset(seq_length=total_time,
-                                                dataset_size=batch_size,
+                                                dataset_size=dataset_size,
                                                 randomness=True)
                 test_dataset = MultiAddtaskDataset(seq_length=total_time,
                                                dataset_size=batch_size,
-                                               randomness=False)
+                                               randomness=True)
             elif dataset == 'custom':
                 from snn_delays.datasets.custom_datasets import CustomDataset
                 data_train = kwargs['data_train']
@@ -235,7 +238,7 @@ class DatasetLoader:
                                       shuffle=shuffle,
                                       drop_last=False,
                                       pin_memory=pin_memory,
-                                      num_workers=num_workers)
+                                      num_workers=num_workers) # Maintains worker pool
 
     def change_total_time(self, time):
         """

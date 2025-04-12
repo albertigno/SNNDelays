@@ -157,6 +157,11 @@ class Training:
         else:
             gradient_clipping = False
 
+        if 'printed_steps' in kwargs:
+            printed_steps = kwargs["printed_steps"]
+        else:
+            printed_steps = 3
+
         # Training loop over the train dataset
         for i, (images, labels) in enumerate(train_loader):
 
@@ -187,7 +192,7 @@ class Training:
             scheduler.step(self.epoch + i / num_iter)
 
             should_print = (
-                (num_iter >= 3 and (i + 1) % int(num_iter / 3.0) == 0) or
+                (num_iter >= 3 and (i + 1) % int(num_iter / printed_steps) == 0) or
                 (num_iter < 3 and (i + 1) % num_iter == 0)
             )
 
