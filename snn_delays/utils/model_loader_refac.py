@@ -26,8 +26,10 @@ class ModelLoader:
 
         kwargs = params['kwargs']
 
+        extra_kwargs = kwargs.pop('extra_kwargs')
+
         snn = params['type']
-        snn = snn(**kwargs)
+        snn = snn(**kwargs, **extra_kwargs)
         snn.set_layers()
         snn.to(device)
         snn.load_state_dict(params['net'], strict= False) # be careful with this

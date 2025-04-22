@@ -262,67 +262,25 @@ class CopyMemoryDataset(SyntheticDataset):
         if not rnd:
             torch.manual_seed(idx)
 
-        # Vectorized operations
         with torch.no_grad():
             # Create base sequence
             max_noise = 0.2
-            seq = torch.empty((seq_length, 3), dtype=torch.float32)
-            seq[:, :] = max_noise * torch.rand(1, device='cpu')  # Broadcast
+            seq = max_noise*torch.rand([seq_length, 3], dtype=torch.float)
             
             # First column: random numbers 0.1-0.9
-            seq[:, 0] = torch.randint(1, 10, (seq_length,), device='cpu').float() / 10.0
+            seq[:, 0] = torch.randint(1, 10, (seq_length,)).float() / 10.0
             
             # Determine start time
-            start_time = torch.randint(high=seq_length//2, size=(1,), device='cpu').item()
-            
-            # Create masks
-            memory_mask = torch.zeros(seq_length, device='cpu')
-            memory_mask[start_time:start_time + mem_length] = 1
-            
-            output_mask = torch.zeros(seq_length, device='cpu')
-            output_mask[seq_length-mem_length:] = 1
-            
-            # Apply masks
-            seq[:, 1] = memory_mask
-            seq[:, 2] = output_mask
+            start_time = torch.randint(high=seq_length//2, size=(1,)).item()
+
+            seq[start_time:start_time + mem_length, 1] = torch.ones([mem_length])
+            seq[seq_length-mem_length:, 2] = torch.ones([mem_length])
             
             # Create label
             label_values = seq[start_time:start_time + mem_length, 0]
             label = label_values.view(-1, 1).expand(-1, mem_length).T
             
         return seq, label
-
-
-
-    # ### V4: COPY TASK WITH multiple output neurons
-    # ### V5: all sequence is random numbers
-    # @staticmethod
-    # def create_sample(seq_length, mem_length, idx, rnd):
-
-    #     # Set seed for repeated batches ir rnd=False
-    #     if not rnd:
-    #         torch.manual_seed(idx)
-
-    #     max_noise = 0.2
-    #     seq = max_noise*torch.rand([seq_length, 3], dtype=torch.float)
-    #     #seq[:,0] = torch.randint(1, 10, (seq_length, 1)) / 10.0 # random numbers from 0.1 to 0.9
-
-    #     seq[:,0] = torch.randint(1, 10, (seq_length,)) / 10.0 # random numbers from 0.1 to 0.9
-        
-    #     # the time at which the number to memorize appears
-    #     start_time = torch.randint(high=seq_length//2, size=(1,)).item()
-        
-    #     # marker for the sequence to remember
-    #     seq[start_time:start_time + mem_length, 1] = torch.ones([mem_length])
-
-    #     label = torch.zeros(mem_length, 1)
-    #     label[:,0] = seq[start_time:start_time + mem_length, 0].T.clone().detach()
-        
-    #     seq[seq_length-mem_length:, 2] = torch.ones([mem_length])
-        
-    #     label = label.expand(-1, mem_length).T
-
-    #     return seq.clone().detach(), label.clone().detach()
 
     def get_train_attributes(self):
         """
@@ -347,30 +305,32 @@ class MultiAddtaskDataset(SyntheticDataset):
         if not rnd:
             torch.manual_seed(idx)
 
-        max_noise = 0.2
-        seq = max_noise*torch.rand([seq_length, 3], dtype=torch.float)
-        seq[:,0] = torch.randint(1, 10, (seq_length,)) / 10.0 # random numbers from 0.1 to 0.9
+        with torch.no_grad():
 
-        # the time at which the number to memorize appears
-        half_seq = int(0.8*seq_length/2) - mem_length
-        end_seq = int(0.8*seq_length) - mem_length
-        start_time_1 = torch.randint(high=half_seq, size=(1,)).item()
-        start_time_2 = torch.randint(low=half_seq+mem_length, high=end_seq, size=(1,)).item()
+            max_noise = 0.2
+            seq = max_noise*torch.rand([seq_length, 3], dtype=torch.float)
+            seq[:,0] = torch.randint(1, 10, (seq_length,)) / 10.0 # random numbers from 0.1 to 0.9
 
-        # marker for the two sequence to add
-        seq[start_time_1:start_time_1 + mem_length, 1] = torch.ones([mem_length])
-        seq[start_time_2:start_time_2 + mem_length, 1] = torch.ones([mem_length])
+            # the time at which the number to memorize appears
+            half_seq = int(0.8*seq_length/2) - mem_length
+            end_seq = int(0.8*seq_length) - mem_length
+            start_time_1 = torch.randint(high=half_seq, size=(1,)).item()
+            start_time_2 = torch.randint(low=half_seq+mem_length, high=end_seq, size=(1,)).item()
 
-        # marker for the queue at the end of the task
-        seq[seq_length-mem_length:, 2] = torch.ones([mem_length])
-        
-        # Sum all elements of 'labels' to create a new label, normalize so the max is 2 (as in add task)
-        operand1 = seq[start_time_1:start_time_1 + mem_length, 0]
-        operand2 = seq[start_time_2:start_time_2 + mem_length, 0]
-        lbl = torch.sum(operand1 + operand2)/(0.9*mem_length)
-        label = lbl.item() * torch.ones([mem_length, 1])
+            # marker for the two sequence to add
+            seq[start_time_1:start_time_1 + mem_length, 1] = torch.ones([mem_length])
+            seq[start_time_2:start_time_2 + mem_length, 1] = torch.ones([mem_length])
 
-        return seq.clone().detach(), label.clone().detach()
+            # marker for the queue at the end of the task
+            seq[seq_length-mem_length:, 2] = torch.ones([mem_length])
+            
+            # Sum all elements of 'labels' to create a new label, normalize so the max is 2 (as in add task)
+            operand1 = seq[start_time_1:start_time_1 + mem_length, 0]
+            operand2 = seq[start_time_2:start_time_2 + mem_length, 0]
+            lbl = torch.sum(operand1 + operand2)/(0.9*mem_length)
+            label = lbl.item() * torch.ones([mem_length, 1])
+
+        return seq, label
 
     # ### TWO SETS
     # @staticmethod

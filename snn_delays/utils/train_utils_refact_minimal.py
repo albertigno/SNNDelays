@@ -36,6 +36,11 @@ def train(snn, train_loader, test_loader, learning_rate, num_epochs,
 
     weight_params = weight_params + [param for name, param in snn.named_parameters() if 'f' in name]
 
+    if 'freeze_taus' in kwargs.keys():
+        if kwargs['freeze_taus']:
+            for param in tau_m_params:
+                param.requires_grad = False
+
     optimizer = torch.optim.Adam([
         {'params': weight_params},
         {'params': tau_m_params, 'lr': lr_tau}],
@@ -43,6 +48,8 @@ def train(snn, train_loader, test_loader, learning_rate, num_epochs,
         
     step_size, gamma = scheduler[0], scheduler[1]
     scheduler = StepLR(optimizer, step_size=step_size, gamma=gamma)
+
+    snn.ckpt_dir = ckpt_dir
 
     for epoch in range(num_epochs):
         
@@ -52,7 +59,6 @@ def train(snn, train_loader, test_loader, learning_rate, num_epochs,
         current_lr_tau = optimizer.param_groups[1]['lr']
         print('Epoch [%d/%d], learning_rates %f, %f' % (epoch + 1, num_epochs,
                                                          current_lr, current_lr_tau), flush=True)
-
 
         snn.train_step(train_loader, optimizer=optimizer, scheduler = scheduler, **kwargs)        
 

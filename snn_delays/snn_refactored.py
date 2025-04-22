@@ -125,7 +125,26 @@ class Training:
             # print(labels.shape)
 
         return outputs, labels
+    
 
+    def tb_synthetic(self):
+
+        last_loss = np.array(self.train_loss)[-1,1]
+        min_loss = np.min(np.array(self.train_loss)[:,1])
+
+        # save last model, removing the previous one
+        if hasattr(self, 'last_model_name'):
+            self.remove_model(self.last_model_name, self.ckpt_dir)
+        self.last_model_name = self.model_name+f'_last_{self.epoch+1}epoch'
+        self.save_model(self.last_model_name, self.ckpt_dir)
+
+        # save min loss model, removing the previous one
+        if last_loss == min_loss:
+            if hasattr(self, 'last_min_model_name'):
+                self.remove_model(self.last_min_model_name, self.ckpt_dir)
+            print(f'saving min loss: {min_loss}')
+            self.last_min_model_name = self.model_name+ f'_minloss_{self.epoch+1}epoch'
+            self.save_model(self.last_min_model_name, self.ckpt_dir)
 
     # TODO: Documentacion
     def train_step(self, train_loader=None, optimizer=None, scheduler= None, **kwargs):
@@ -199,6 +218,12 @@ class Training:
             if should_print:
                 progress = f"Step [{i + 1}/{self.num_train_samples // self.batch_size}]"
                 print(f"{progress}, Loss: {running_loss:.5f}", flush=True)
+
+                #### temporal feature for synthetic datasets...
+                if "episodic" in self.dataset_dict["dataset_name"]:
+                    self.epoch = i
+                    self.train_loss.append([self.epoch, running_loss])        
+                    self.tb_synthetic()            
                 #print(f"l1_score: {l1_score}")
 
             # Reset running loss
@@ -209,12 +234,13 @@ class Training:
         else:
             num_train_samples = (num_iter-1)*self.batch_size + self.incomplete_batch_len 
         
-        print(num_train_samples)
+        #print(num_train_samples)
         norm_iters = num_train_samples / self.batch_size
 
-        # Update parameters
-        self.epoch = self.epoch + 1
-        self.train_loss.append([self.epoch, total_loss_train / norm_iters])
+        if "episodic" not in self.dataset_dict["dataset_name"]:
+            # Update parameters
+            self.epoch = self.epoch + 1
+            self.train_loss.append([self.epoch, total_loss_train / norm_iters])
 
 
     def test(self, test_loader=None, only_one_batch=False):
@@ -311,13 +337,15 @@ class Training:
             self.acc.append([self.epoch, acc])
             self.test_loss.append([self.epoch, total_loss_test / norm_iters])
             self.test_spk_count.append([self.epoch, total_spk_count/ total])
-            self.test_gradients.append([self.epoch, gradient_norms])
+            if self.save_gradients:
+                self.test_gradients.append([self.epoch, gradient_norms])
             # quitar penultimo acc, test_loss si coinciden las epocas o si se entrena por primera vez  
             if self.acc[-2][0] == self.epoch or self.acc[-2][1] == None:
                 self.acc.pop(-2)
                 self.test_loss.pop(-2)
                 self.test_spk_count.pop(-2)
-                self.test_gradients.pop(-2)
+                if self.save_gradients:
+                    self.test_gradients.pop(-2)
 
         # Print information about test
         print('Test Loss: {}'.format(total_loss_test / (i+1)))
@@ -442,6 +470,12 @@ class FeedforwardSNNLayer(DelayedSNNLayer):
         self.device = device
         self.thresh = float('inf') if inf_th else 0.3
 
+        if self.pre_delays:
+            with torch.no_grad():
+                scale_factor = torch.sqrt(self.max_d / self.pruned_delays).item()
+                self.linear.weight *= scale_factor
+
+
     def update_mem(self, i_spike, o_spike, mem, thresh):
 
         # Set alpha value to membrane potential decay
@@ -468,6 +502,16 @@ class RecurrentSNNLayer(DelayedSNNLayer):
         self.batch_size = batch_size
         self.device = device
         self.thresh = float('inf') if inf_th else 0.3
+
+        with torch.no_grad():
+
+            mx = torch.sqrt(torch.tensor(num_in+num_out))
+            ln_mx = torch.sqrt(torch.tensor(num_in))
+            rc_mx = torch.sqrt(torch.tensor(num_out))
+
+            self.linear.weight *= (ln_mx/mx).item()
+            self.linear_rec.weight *= (rc_mx/mx).item()
+
 
     def update_mem(self, i_spike, o_spike, mem, thresh):
 
@@ -692,29 +736,32 @@ class SNN(Training, nn.Module):
 
         # Initialization of the dictionary to log the state of the
         # network if debug is activated
-        setattr(self, 'mem_state', dict())
-        setattr(self, 'spike_state', dict())        
 
-        if self.debug:
-            self.spike_state['input'] = torch.zeros(
-                self.win, self.batch_size,
-                self.num_input, device=self.device)
-            
-        for i, layer in enumerate(self.layers):
+        with torch.no_grad():
 
-            num_neurons = layer.num_out
+            setattr(self, 'mem_state', dict())
+            setattr(self, 'spike_state', dict())        
 
-            if i == len(self.layers)-1:
-                name = 'output'
-            else:
-                name = 'l' + str(i+1)
+            if self.debug:
+                self.spike_state['input'] = torch.zeros(
+                    self.win, self.batch_size,
+                    self.num_input, device=self.device)
+                
+            for i, layer in enumerate(self.layers):
 
-            self.mem_state[name] = torch.zeros(
-                self.win, self.batch_size,
-                num_neurons, device=self.device)
-            self.spike_state[name] = torch.zeros(
-                self.win, self.batch_size,
-                num_neurons, device=self.device)
+                num_neurons = layer.num_out
+
+                if i == len(self.layers)-1:
+                    name = 'output'
+                else:
+                    name = 'l' + str(i+1)
+
+                self.mem_state[name] = torch.zeros(
+                    self.win, self.batch_size,
+                    num_neurons, device=self.device)
+                self.spike_state[name] = torch.zeros(
+                    self.win, self.batch_size,
+                    num_neurons, device=self.device)
 
 
     def update_logger(self, *args):
@@ -731,7 +778,7 @@ class SNN(Training, nn.Module):
         if self.debug:
             inpt, mems, spikes, step = args
 
-            self.spike_state['input'][step, :, :] = inpt
+            self.spike_state['input'][step, :, :] = inpt.detach().clone()
 
             for i in range(len(self.layers)):
 
@@ -740,8 +787,8 @@ class SNN(Training, nn.Module):
                 else:
                     name = 'l' + str(i+1)
 
-                self.mem_state[name][step, :, :] = mems[name]
-                self.spike_state[name][step, :, :] = spikes[name]
+                self.mem_state[name][step, :, :] = mems[name].detach().clone()
+                self.spike_state[name][step, :, :] = spikes[name].detach().clone()
 
     def get_tau_m(self, num_neurons):
 
@@ -755,13 +802,15 @@ class SNN(Training, nn.Module):
             delta_t = time_ms/self.win
             print(f"Delta t: {delta_t} ms")
         else:
-            raise Exception("Please define time_ms in dataset_dic.")
+            if self.tau_m == 'normal':
+                raise Exception("Please define time_ms in dataset_dic.")
 
         if type(self.tau_m) == float:
             x = logit(np.exp(-delta_t/self.tau_m))
             return nn.Parameter(x*torch.ones(num_neurons))
 
-        elif self.tau_m == 'normal':
+        elif self.tau_m == 'normal': 
+            #log-normal in reality, the name is kept for compatibility
             mean = logit(np.exp(-delta_t/mean_tau))
             #print(f"mean of normal: {mean}")
             std = 1.0
@@ -769,6 +818,35 @@ class SNN(Training, nn.Module):
                     torch.distributions.normal.Normal(
                         mean * torch.ones(num_neurons),
                         std * torch.ones(num_neurons)).sample())
+        
+        elif 'log-uniform' in self.tau_m:
+            # Sample U uniformly in log space from 0.1 to max
+            # if log-uniform, max = 10*num_timesteps
+            # if log-uniform-st, max = 0.1*num_timesteps
+            # if only one output neuron, tau=num_timesteps
+
+            if self.tau_m == 'log-uniform':
+                max_factor = 10
+            elif self.tau_m == 'log-uniform-st':
+                max_factor = 0.1
+
+            if num_neurons==self.num_output:
+                log_tau_min = np.log(0.9*self.win)
+                log_tau_max = np.log(1.1*self.win) 
+            else:
+                log_tau_min = np.log(0.1)
+                log_tau_max = np.log(max_factor*self.win)
+            U = np.random.uniform(log_tau_min, log_tau_max, size=(num_neurons,))
+            
+            # Compute M = -log(exp(exp(-U)) - 1)
+            # exp_neg_U = np.exp(-U, dtype=np.float64)
+            # exp_exp_neg_U = np.exp(exp_neg_U, dtype=np.float64)
+            # M = -np.log(exp_exp_neg_U - 1.0)
+            M = -np.log(np.exp(np.exp(-U)) - 1)
+
+            return nn.Parameter(torch.tensor(M, dtype=torch.float))        
+
+
 
     @staticmethod
     def update_queue(tensor, data):
@@ -820,5 +898,47 @@ class SNN(Training, nn.Module):
 
         return all_o_mems, all_o_spikes
     
-    def save_model(self, ckpt_dirs, name):
-        pass
+    def save_model(self, model_name='rsnn', directory='default'):
+        """
+        Function to save model
+
+        :param model_name: Name of the model (default = 'rsnn')
+        :param directory: Directory to save the model (relative to
+        CHECKPOINT_PATH) (default = 'default')
+        """
+
+        self.kwargs.pop('__class__', None)
+        self.kwargs.pop('self', None)
+        self.kwargs.pop('device', None)
+        self.kwargs.pop('debug', None)
+
+        # Create the state dictionary
+        state = {
+            'type': type(self),
+            'net': self.state_dict(),
+            'epoch': self.epoch,
+            'acc_record': self.acc,
+            'train_loss': self.train_loss,
+            'test_loss': self.test_loss,
+            'test_spk': self.test_spk_count,
+            'model_name': self.model_name,
+            'self.info': self.info,
+            'kwargs': self.kwargs
+        }
+
+        # Define the path to save the model
+        model_path = os.path.join(CHECKPOINT_PATH, directory)
+
+        # If the directory do not exist, it is created
+        if not os.path.isdir(model_path):
+            os.makedirs(model_path)
+
+        # Save the model
+        torch.save(state,
+                   os.path.join(model_path, model_name),
+                   _use_new_zipfile_serialization=False)
+        print('Model saved in ', model_path)
+
+    def remove_model(self, model_name='rsnn', directory='default'):
+        model_path = os.path.join(CHECKPOINT_PATH, directory, model_name)
+        os.remove(model_path)

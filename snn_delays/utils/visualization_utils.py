@@ -92,7 +92,7 @@ def plot_param(w, mode='histogram', title='', label = '', xlabel='', ylabel='', 
             w = w[w.nonzero()]
 
         #plt.hist(w, bins=200, log=log)
-        n, bins, patches = plt.hist(w, bins='auto', density=True, log=log, alpha=0.5, label=label)
+        n, bins, patches = ax.hist(w, bins='auto', density=True, log=log, alpha=0.5, label=label)
         hist_color = patches[0].get_facecolor()
 
         if 'distribution' in kwargs.keys() and len(w) >= 2:
@@ -121,7 +121,8 @@ def plot_param(w, mode='histogram', title='', label = '', xlabel='', ylabel='', 
                 # Fit a Kernel Density Estimate (KDE)
                 kde = gaussian_kde(w)
                 x = np.linspace(min(w), max(w), 1000)
-                plt.plot(x, kde(x), color=hist_color)
+                ax.plot(x, kde(x), color=hist_color)
+                #plt.plot(x, kde(x), color=hist_color)
 
         ax = plt.gca()
         ax.set_xlabel(xlabel, fontsize=14)
@@ -755,6 +756,85 @@ def plot_taus(snn, label = 'taus', mode='discrete'):
             raise ValueError(f"Unsupported: {mode}. Choose from 'real', 'discrete'.")
 
     return plt.gca()
+
+
+def plot_taus_refact(snn, label = 'taus', mode='discrete'):
+
+    '''
+    mode: real or discrete
+    '''
+
+    delta_t = snn.dataset_dict.get('time_ms', 0)/snn.win
+
+    tau_m_params = [param for name, param in snn.named_parameters() if 'tau' in name]
+
+    num_subplots = len(tau_m_params)
+
+    max_tau = 0.0
+
+    plt.title(f'Distribution of taus, {mode} time')
+    for i, pseudo_tau_m in enumerate(tau_m_params):
+
+        real_tau = -delta_t/torch.log(torch.sigmoid(pseudo_tau_m))
+
+        if torch.max(real_tau).item()>max_tau:
+            max_tau = torch.max(real_tau).item()
+
+        if mode=='real':
+            plt.subplot(num_subplots, 1, i+1)
+            plot_param(real_tau, mode='histogram', label=label, distribution='kde')
+            if i==num_subplots-1:
+                plt.xlabel('time (ms)')
+
+        elif mode=='discrete':
+            plt.subplot(num_subplots, 1, i+1)
+            #plot_param(real_tau/snn.win, mode='histogram')    
+            ax = plot_param(real_tau/delta_t, mode='histogram', label=label, distribution='kde')
+            ax.axvline(x=snn.win, color='red', linestyle='--', linewidth=2)
+            ax.set_xlim(0, max_tau/delta_t)
+            if i==num_subplots-1:
+                plt.xlabel('simulation timestep')
+
+        else:
+            raise ValueError(f"Unsupported: {mode}. Choose from 'real', 'discrete'.")
+
+
+
+# def plot_taus_refact(snn, label='taus', mode='discrete'):
+#     '''
+#     mode: real or discrete
+#     '''
+#     delta_t = snn.dataset_dict.get('time_ms', 0)/snn.win
+#     tau_m_params = [param for name, param in snn.named_parameters() if 'tau' in name]
+#     num_subplots = len(tau_m_params)
+
+#     plt.figure(figsize=(8, 2*num_subplots))  # Ensure proper figure size
+#     plt.title(f'Distribution of taus, {mode} time')
+    
+#     for i, pseudo_tau_m in enumerate(tau_m_params):
+#         real_tau = -delta_t/torch.log(torch.sigmoid(pseudo_tau_m))
+        
+#         plt.subplot(num_subplots, 1, i+1)
+        
+#         if mode == 'real':
+#             plot_param(real_tau, mode='histogram', label=label, distribution='kde')
+#             if i == num_subplots-1:
+#                 plt.xlabel('time (ms)')
+#                 plt.gca().xaxis.set_major_locator(plt.MaxNLocator(5))  # Control ticks
+                
+#         elif mode == 'discrete':
+#             plot_param(real_tau/delta_t, mode='histogram', label=label, distribution='kde')
+#             plt.axvline(x=snn.win, color='red', linestyle='--', linewidth=2)
+#             plt.xlim(0, 10*snn.win)
+#             if i == num_subplots-1:
+#                 plt.xlabel('simulation timestep')
+#                 plt.gca().xaxis.set_major_locator(plt.MultipleLocator(snn.win))  # Ticks at window multiples
+                
+#         else:
+#             raise ValueError(f"Unsupported: {mode}. Choose from 'real', 'discrete'.")
+    
+#     plt.tight_layout()  # Fix overlapping elements
+
 
 def plot_add_task(output, reference, axes=None, name=''):
     ref = reference

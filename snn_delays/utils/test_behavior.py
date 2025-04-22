@@ -97,3 +97,32 @@ def tb_addtask_refact(snn, ckpt_dir, test_loader, test_every):
         #print(f"prediction {pred}, reference {ref}")
         print(f'Mean Error: {loss.item()/len(images)}% ')
         print('--------------------------')
+
+
+def tb_synthetic_refact(snn, ckpt_dir, test_loader, test_every):
+    if (snn.epoch) % test_every == 0:
+
+        for images, labels in test_loader:
+            pred, ref = snn.propagate(images.to(snn.device), labels.to(snn.device))
+
+        last_loss = np.array(snn.train_loss)[-1,1]
+        min_loss = np.min(np.array(snn.train_loss)[:,1])
+
+        if snn.last_model_name is not None:
+            snn.remove_model(snn.last_model_name, ckpt_dir)
+
+        snn.last_model_name = snn.model_name+f'_last_{snn.epoch}epoch'
+        snn.save_model(snn.last_model_name, ckpt_dir)
+
+        if last_loss == min_loss:
+            if snn.last_min_model_name is not None:
+                snn.remove_model(snn.last_min_model_name, ckpt_dir)
+
+            print(f'saving min loss: {min_loss}')
+            snn.last_min_model_name = snn.model_name+'_'+ f'_minloss_{snn.epoch}epoch'
+
+        snn.save_model(snn.model_name, ckpt_dir)
+
+        loss = snn.criterion(pred, ref)
+        print(f'Mean Error: {loss.item()/len(images)}% ')
+        print('--------------------------')
