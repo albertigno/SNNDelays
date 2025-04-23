@@ -2,8 +2,10 @@
 common operations when loading datasets for analysis
 '''
 RESULTS_PATH = r'C:\Users\Alberto\OneDrive - UNIVERSIDAD DE SEVILLA\PythonData\Checkpoints'
-from snn_delays.utils.model_loader import ModelLoader
-from snn_delays.utils.train_utils import get_device, propagate_batch
+#from snn_delays.utils.model_loader import ModelLoader
+from snn_delays.utils.model_loader_refac import ModelLoader
+
+from snn_delays.utils.train_utils_refact_minimal import get_device, propagate_batch_simple
 from snn_delays.utils.hw_aware_utils import prune_weights
 from IPython.display import clear_output
 device = get_device()
@@ -88,7 +90,7 @@ def get_results(ckpt_dir, sweep_params_names, rpts=3, mode='max', ablation_name=
                 if reference in model_name and mode in model_name:
                     print(model_name)
                     snn = ModelLoader(
-                        model_name, models_dir, batch_size, device, True)
+                        model_name, models_dir, batch_size, device, True)                
                     clear_output(wait=True)
                     max_acc = snn.acc[-1][-1]
                     # spikes per timestep per neuron
@@ -118,6 +120,107 @@ def get_results(ckpt_dir, sweep_params_names, rpts=3, mode='max', ablation_name=
                 test_loss[model_config].append(snn.test_loss)
 
     results = (acc, spk, spk_t, train_loss, test_loss, num_params, num_eff_params)
+
+    return results
+
+
+
+def plot_losses(nested_loss_lists, label='Mean loss', color='blue', linestyle='-'):
+
+    # Example data: replace `nested_loss_lists` with your actual data
+    #nested_loss_lists = tstloss_d['f_d_2l_hm_ft']
+
+    # Ensure all lists have the same length and epoch indices
+    epochs = [entry[0] for entry in nested_loss_lists[0]]  # Epochs
+    all_losses = [np.array([entry[1] for entry in lst]) for lst in nested_loss_lists]
+
+    # Calculate average and standard deviation
+    mean_losses = np.mean(all_losses, axis=0)
+    std_losses = np.std(all_losses, axis=0)
+
+    # Plot the average loss curve with error bars
+    #plt.figure(figsize=(10, 6))
+    plt.plot(epochs, mean_losses, label=label, color=color, linestyle=linestyle)
+    #plt.fill_between(epochs, mean_losses - std_losses, mean_losses + std_losses, color=color, alpha=0.2, label='±1 Std Dev')
+    plt.fill_between(epochs, mean_losses - std_losses, mean_losses + std_losses, color=color, alpha=0.2)
+    #plt.title("Average Loss Curve")
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    plt.legend()
+    plt.grid(True)
+    return plt.gca()
+
+
+def get_results_refact(ckpt_dir, sweep_params_names, rpts=3, mode='max', ablation_name=''):
+
+    '''
+    rpts: number of repetitions of the experiment
+    mode: 'max' (best accuracy regardless of epoch) or 'last' (final accuracy)
+    '''
+
+    batch_size=64
+
+    models_dir = os.path.join(RESULTS_PATH, ckpt_dir)
+    ### MODELS
+    models = []
+    for _, __, files in os.walk(models_dir, topdown=False):
+        for name in files:
+            if '.py' not in name:
+                models.append(name)
+
+    ### LOAD RESULTS
+    acc = dict()
+    spk = dict()
+    train_loss = dict()
+    test_loss = dict()
+
+    configurations_names = list(itertools.product(*sweep_params_names.values()))
+
+    if type(rpts)==int:
+        num_rpts = rpts
+    else:
+        num_rpts = 1
+
+    for name in configurations_names:
+        model_config = '_'.join(list(name))
+
+        for rpt in range(num_rpts): 
+            
+            # Load model with maximum acc
+            reference = f'{ablation_name}{model_config}_rpt{rpt}' if type(rpts)==int else f'{model_config}'
+            model_loaded_flag = False
+            for model_name in models:
+                if reference in model_name and mode in model_name:
+                    print(model_name)
+                    snn = ModelLoader(
+                        model_name, models_dir, batch_size, device)                
+                    clear_output(wait=True)
+                    max_acc = snn.acc[-1][-1]
+                    # spikes per timestep per neuron
+                    print(snn.test_spk_count[-1][-1])
+                    # spike_density = len(snn.num_neurons_list)*snn.test_spk_count[-1][-1] / snn.win
+                    # spikes per timestep in total
+                    # spike_per_time = spike_density*sum(snn.num_neurons_list)
+                    model_loaded_flag = True
+
+            if not(model_loaded_flag):
+                    raise FileNotFoundError(f'model with reference {reference} not found')
+
+            # num_params[model_config], num_eff_params[model_config] = get_param_count(snn)
+
+            # Save results acc
+            if f'{model_config}' not in acc.keys():            
+                acc[model_config] = [max_acc]
+                #spk[model_config] = [spike_density]
+                train_loss[model_config] = [snn.train_loss]
+                test_loss[model_config] = [snn.test_loss]
+            else:
+                acc[model_config].append(max_acc)
+                #spk[model_config].append(spike_density)
+                train_loss[model_config].append(snn.train_loss)
+                test_loss[model_config].append(snn.test_loss)
+
+    results = (acc, train_loss, test_loss)
 
     return results
 
@@ -251,11 +354,11 @@ def get_states(
             for model_name in models:
                 if reference in model_name and mode in model_name:
                     print(f'Loading model: {model_name}')
-                    snn = ModelLoader(model_name, models_dir, batch_size, device, True)
+                    snn = ModelLoader(model_name, models_dir, batch_size, device)
                     
-                    ######## TEMPORARY FIX to being unable to properly load MF-nets!!!
-                    if 'mf' in model_name:
-                        snn.multi_proj = 3
+                    # ######## TEMPORARY FIX to being unable to properly load MF-nets!!!
+                    # if 'mf' in model_name:
+                    #     snn.multi_proj = 3
                     
                     #snn.use_amp = False
                     clear_output(wait=True)
@@ -266,9 +369,12 @@ def get_states(
                 raise FileNotFoundError(f'Model with reference {reference} not found')
 
             if get_states:
+
+                snn.debug = True
+                snn.init_state_logger()
                 # Test the model
                 #ref, pred = snn.test(loader, only_one_batch=True)
-                img, ref = propagate_batch(snn, loader)
+                img, ref = propagate_batch_simple(snn, loader)
 
             # Extract and store the specified attributes
             for attr in attributes:
