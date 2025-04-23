@@ -28,68 +28,20 @@ model_params = {'dataset_dict': dataset_dict,
                  'loss_fn':'mem_prediction', 
                  'batch_size':batch_size,
                  'device':device,
-                 'debug':False,
-                 'pruned_delays': 3}
+                 'debug':False}
 
 train_params = {'learning_rate':1e-3, 'num_epochs':1, 'scheduler':(100, 0.95), 'ckpt_dir':ckpt_dir,
           'test_behavior':tb_synthetic_refact, 'test_every':100, 'printed_steps':100, 'freeze_taus':True}
 
 #### first run (f+d)
-# sweep_params = {
-#     'delay_range': [(x, 1) for x in [3, 5]],
-#     'structure':[(8, 2, 'd'), (64, 2, 'd')]
-#     }
-
-# sweep_params_names = {
-#     'delay_range': ['drf'+str(x) for x in [3, 5]],
-#     'structure':['h8', 'h64']
-#     }
-
-# #### first run (f+d)
-# sweep_params = {
-#     'delay_range': [(x, 1) for x in [10, 15, 20]],
-#     'structure':[(8, 2, 'd'), (64, 2, 'd')]
-#     }
-
-# sweep_params_names = {
-#     'delay_range': ['drf'+str(x) for x in [10, 15, 20]],
-#     'structure':['h8', 'h64']
-#     }
-
-
-#### first run (f+d)
 sweep_params = {
-    'delay_range': [(x, 1) for x in [25, 30, 35]],
-    'structure':[(8, 2, 'd'), (64, 2, 'd')]
+    'structure':[(8, 2, 'mf'), (64, 2, 'r'), (8, 2, 'r'), (64, 2, 'mf')]
     }
 
 sweep_params_names = {
-    'delay_range': ['drf'+str(x) for x in [25, 30, 35]],
-    'structure':['h8', 'h64']
+    'structure':['h8mf', 'h64r', 'h8r', 'h64mf']
     }
 
-
-# sweep_params = {
-#     'delay_range': [(x, 1) for x in [40, 45, 50]],
-#     'structure':[(8, 2, 'd'), (64, 2, 'd')]
-#     }
-
-# sweep_params_names = {
-#     'delay_range': ['drf'+str(x) for x in [40, 45, 50]],
-#     'structure':['h8', 'h64']
-#     }
-
-
-### second run (f+d)
-# sweep_params = {
-#     'delay_range': [(x, 1) for x in range(60, 105, 5)],
-#     'structure':[(8, 2, 'd'), (64, 2, 'd')]
-#     }
-
-# sweep_params_names = {
-#     'delay_range': ['drf'+str(x) for x in range(60, 105, 5)],
-#     'structure':['h8', 'h64']
-#     }
 
 import itertools
 def get_configs(sweep_params, sweep_params_names):
@@ -114,6 +66,9 @@ def train_model(cfg_id, repetition):
                 train_params[key[2:]] = value
             else:
                 model_params[key] = value
+
+    if model_params['structure'][2] == 'mf':
+        model_params['multifeedforward'] = 3
 
     snn = SNN(**model_params)
     snn.set_layers()
