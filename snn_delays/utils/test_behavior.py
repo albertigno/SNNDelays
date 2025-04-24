@@ -29,6 +29,22 @@ def tb_save_max_acc(snn, ckpt_dir, test_loader, dropout, test_every):
             snn.save_model(
                 snn.model_name+'_'+ ''.join(str(np.array(snn.acc)[-1,1]).split('.')) , 
                 ckpt_dir)
+            
+
+def tb_save_max_acc_refac(snn, ckpt_dir, test_loader, test_every):
+    '''
+    test every "check_every" and save results only for the nets with best accuracy
+    '''
+
+    if (snn.epoch) % test_every == 0:
+        snn.test(test_loader)
+        last_acc = np.array(snn.acc)[-1,1]
+        max_acc = np.max(np.array(snn.acc)[:,1])
+        if last_acc == max_acc:
+            print(f'saving max acc: {max_acc}')
+            snn.save_model(
+                snn.model_name+'_'+ ''.join(str(np.array(snn.acc)[-1,1]).split('.')) , 
+                ckpt_dir)
 
 def tb_save_max_last_acc(snn, ckpt_dir, test_loader, dropout, test_every):
     '''
