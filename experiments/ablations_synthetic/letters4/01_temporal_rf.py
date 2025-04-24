@@ -14,7 +14,7 @@ device = get_device()
 
 time_window = 64
 batch_size = 64
-num_epochs = 100 # iterations steps
+num_epochs = 100 
 
 ckpt_dir = 'abl10_letters4_temporal_field'
 
