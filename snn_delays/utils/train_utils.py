@@ -164,6 +164,9 @@ def train(snn, train_loader, test_loader, learning_rate, num_epochs, spk_reg=0.0
         else:        
             test_behavior(snn, ckpt_dir, test_loader, dropout, test_every)
 
+    # training_plots(snn)
+    
+
     # empty the cuda cache after every training session
     torch.cuda.empty_cache()
 

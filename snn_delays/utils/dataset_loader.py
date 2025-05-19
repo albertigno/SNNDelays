@@ -1,6 +1,7 @@
 from torch.utils.data import DataLoader
 from tonic import DiskCachedDataset
-from snn_delays.utils.memory_cached_dataset import MemoryCachedDataset
+from tonic import MemoryCachedDataset
+from snn_delays.utils.memory_cached_dataset import GPUMemoryCachedDataset
 import os
 from snn_delays.config import DATASET_PATH, CACHE_PATH
 import numpy as np
@@ -214,8 +215,8 @@ class DatasetLoader:
             train_dataset = MemoryCachedDataset(train_dataset)
             test_dataset = MemoryCachedDataset(test_dataset)
         elif caching == 'gpu':
-            train_dataset = MemoryCachedDataset(train_dataset, device="cuda:0")
-            test_dataset = MemoryCachedDataset(test_dataset, device="cuda:0")
+            train_dataset = GPUMemoryCachedDataset(train_dataset, device="cuda:0")
+            test_dataset = GPUMemoryCachedDataset(test_dataset, device="cuda:0")
             pin_memory = False
         else:
             pass

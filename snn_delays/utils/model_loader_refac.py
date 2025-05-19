@@ -11,11 +11,13 @@ class ModelLoader:
 
     Load a neural network previously trained and saved.
 
-    arguments = model_name, location, batch_size, device, debug
+    arguments = model_name, location, batch_size, device
     """
 
     def __new__(cls, *args, **kwargs):
         model_name, location, batch_size, device = args
+
+        model_loader_kwargs = kwargs.copy()
 
         params = torch.load(
             os.path.join(CHECKPOINT_PATH, location, model_name),
@@ -30,6 +32,10 @@ class ModelLoader:
 
         snn = params['type']
         snn = snn(**kwargs, **extra_kwargs)
+
+        if 'live' in model_loader_kwargs.keys():
+            snn.live = True
+            
         snn.set_layers()
         snn.to(device)
         snn.load_state_dict(params['net'], strict= False) # be careful with this

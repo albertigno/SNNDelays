@@ -7,8 +7,6 @@ import torch.cuda.amp as amp
 import sys
 import json
 import numpy as np
-from collections import deque
-
 
 '''
 I'll try to make the models more Pytorch-like.
@@ -85,14 +83,11 @@ class Training:
             raise Exception("propagation time below data timesteps not implemented yet!")
 
         # Squeeze to eliminate dimensions of size 1    
-        if len(images.shape)>3 and self.batch_size>1:    
+        if len(images.shape)>3:    
             images = images.squeeze()
 
-        if self.batch_size>1:
-            labels = labels.float().squeeze().to(self.device)
-        else:
-            labels = labels.float().to(self.device)
-            
+        labels = labels.float().squeeze().to(self.device)
+
         l_f = self.loss_fn
 
         all_o_mems, all_o_spikes = self(images)
@@ -131,87 +126,6 @@ class Training:
 
         return outputs, labels
     
-
-    def propagate_live(self, images):
-        '''
-        this is to propagate and test streaming data.
-        there is no need to pass labels.
-        '''
-
-        with torch.no_grad():
-
-            self.eval()
-
-            # Resize and reformat of images and labels
-            if self.input2spike_th is not None:
-                images = images > self.input2spike_th
-
-            images = images.to(self.device)
-
-            #images = images.view(self.batch_size, self.win, -1).float().to(self.device)
-            #images = images.view(self.batch_size, -1).float().to(self.device)
-            images = images.reshape(self.batch_size, -1).float().to(self.device)          
-
-            # Squeeze to eliminate dimensions of size 1    
-            ### careful with this if batch size is 1
-            if len(images.shape)>3 and self.batch_size>1:    
-                images = images.squeeze()
-
-            l_f = self.loss_fn
-
-            #o_mems, o_spikes = self.forward_live(images)
-            mems, spikes = self.forward_live(images)
-
-            # o_mems = mems['output']
-            # o_spikes = spikes['output']
-
-            if len(self.mems_fifo['output']) == self.win:
-                for key in self.mems_fifo.keys():
-                    self.mems_fifo[key].popleft()
-                    self.spikes_fifo[key].popleft()
-
-            for key in self.mems_fifo.keys():
-                self.mems_fifo[key].append(mems[key])
-                self.spikes_fifo[key].append(spikes[key]) 
-
-            if l_f == 'mem_last':
-#                _, labels = torch.max(labels.data, 1)
-                outputs = F.softmax(self.mems_fifo['output'][-1], dim=1)
-
-            elif l_f == 'mem_sum':
-                outputs = torch.zeros(
-                self.batch_size, self.num_output, device=self.device)
-#                _, labels = torch.max(labels.data, 1)
-                for o_mem in self.mems_fifo['output']:
-                    outputs = outputs + F.softmax(o_mem, dim=1)
-
-            elif l_f == 'mem_mot':
-                # as in the zenke tutorial
-#                _, labels = torch.max(labels.data, 1)
-                m,_=torch.max(torch.stack(self.mems_fifo['output'], dim=1), 1)
-                outputs = F.softmax(m, dim=1)
-
-            elif l_f == 'spk_count':
-                # outputs = outputs/self.win   #normalized         
-                outputs = torch.sum(torch.stack(self.spikes_fifo['output'], dim=1), dim = 1)/self.win
-
-            elif l_f == 'mem_prediction':
-
-                perc = 0.9
-                start_time = int(perc * self.win)
-                a_o_m = self.mems_fifo['output'][start_time:]
-                # outputs = torch.mean(torch.stack(a_o_m, dim=1), dim = 1)
-                outputs = torch.stack(a_o_m, dim=1).squeeze()
-
-            _, predicted = torch.max(outputs.data, 1)
-
-        return predicted.item()
-            # print(predicted)
-
-            # print(outputs.shape)
-            # print(labels.shape)
-
-#        return outputs, labels
 
     def tb_synthetic(self):
 
@@ -480,6 +394,106 @@ class AbstractSNNLayer(nn.Module):
         """Child classes must implement this."""
         pass
 
+class ReciprocalSNNLayer(AbstractSNNLayer):
+
+    '''
+    '''
+
+    def __init__(self, num_in_i, num_in_j, num_i, num_j, tau_m_i, tau_m_j, batch_size, 
+                 inf_th=False, device=None):
+        super().__init__()
+
+        self.linear_i = nn.Linear(num_in_i, num_i, bias=False) # from external stimulus to i
+        self.linear_j = nn.Linear(num_in_j, num_j, bias=False) # from external stimulus to j
+        self.linear_ij = nn.Linear(num_i, num_j, bias=False) # from j to i
+        self.linear_ji = nn.Linear(num_j, num_i, bias=False) # from i to j
+
+        self.num_i = num_i
+        self.num_j = num_j
+
+        self.tau_m_i = tau_m_i
+        self.tau_m_j = tau_m_j
+
+        self.batch_size = batch_size
+        self.device = device
+        self.thresh = float('inf') if inf_th else 0.3
+
+        # ## connectivity normalization (double check)
+        # with torch.no_grad():
+
+        #     max_scaler_i = torch.sqrt(torch.tensor(num_in_i+num_i))
+        #     in_max_i = torch.sqrt(torch.tensor(num_in_i))
+        #     rc_max_i = torch.sqrt(torch.tensor(num_i))
+        #     self.linear_i.weight *= (in_max_i/max_scaler_i).item()
+        #     self.linear_ji.weight *= (rc_max_i/max_scaler_i).item()
+
+        #     max_scaler_j = torch.sqrt(torch.tensor(num_in_j+num_j))
+        #     in_max_j = torch.sqrt(torch.tensor(num_in_j))
+        #     rc_max_j = torch.sqrt(torch.tensor(num_j))
+        #     self.linear_j.weight *= (in_max_j/max_scaler_j).item()
+        #     self.linear_ij.weight *= (rc_max_j/max_scaler_j).item()
+
+
+    def forward(self, prev_spikes_i, prev_spikes_j, own_mems_i, own_mems_j, own_spikes_i, own_spikes_j):
+        '''
+        returns the mem and spike state
+        '''
+
+        # propagate previous spikes (wheter on simple or extended form)
+        # update_mem(spikes_from_previous_layer, own_spikes, own_mems, threshols)
+        mems_i, mems_j, spikes_i, spikes_j = self.update_mem(
+            prev_spikes_i.reshape(self.batch_size, -1), 
+            prev_spikes_j.reshape(self.batch_size, -1), 
+            own_spikes_i,
+            own_spikes_j,
+            own_mems_i,
+            own_mems_j,
+            self.thresh)
+
+        return mems_i, mems_j, spikes_i, spikes_j
+
+    def update_mem(self, i_spike, j_spike, o_spike_i, o_spike_j, mem_i, mem_j, thresh):
+            
+            """
+            Update the membrane potential and output spike for the reciprocal SNN layer.
+    
+            :param i_spike: Input spikes from the previous layer.
+            :param j_spike: Input spikes from the recurrent layer.
+            :param o_spike_i: Output spikes from this layer (i).
+            :param o_spike_j: Output spikes from the recurrent layer (j).
+            :param mem_i: Membrane potential of this layer (i).
+            :param mem_j: Membrane potential of the recurrent layer (j).
+            :param thresh: Threshold for spike generation.
+            """
+    
+            # Set alpha value to membrane potential decay
+            alpha_i = self.alpha_sigmoid(self.tau_m_i).to(self.device)
+            alpha_j = self.alpha_sigmoid(self.tau_m_j).to(self.device)
+    
+            # contributions from external stimulus to i and j
+            a_i = self.linear_i(i_spike)
+            a_j = self.linear_j(j_spike)
+            
+            # contributions from i to j and j to i
+            b_i = self.linear_ij(o_spike_j)    # From i to j
+            b_j = self.linear_ji(o_spike_i)    # From j to i
+
+            #b_i = self.linear_ij(o_spike_i)    # From i to j
+            #b_j = self.linear_ji(o_spike_j)    # From j to i
+
+            # decay of membrane potential
+            c_i = mem_i * alpha_i * (1-o_spike_i)   # From membrane potential decay
+            c_j = mem_j * alpha_j * (1-o_spike_j)   # From membrane potential decay
+
+            mem_i = a_i + b_i + c_i
+            mem_j = a_j + b_j + c_j
+
+            mem_i, o_spike_i = self.activation_function(mem_i, thresh)
+            mem_j, o_spike_j = self.activation_function(mem_j, thresh)
+
+            return mem_i, mem_j, o_spike_i, o_spike_j
+
+
 class DelayedSNNLayer(AbstractSNNLayer):
     """
     Base class to handle fan-in delays and the multi-projections for SNN layers.
@@ -612,6 +626,7 @@ class RecurrentSNNLayer(DelayedSNNLayer):
 
         return self.activation_function(mem, thresh)
 
+
 class SNN(Training, nn.Module):
     """
     Spiking neural network (SNN) class.
@@ -620,7 +635,7 @@ class SNN(Training, nn.Module):
     without delays. It inherits from nn.Module.
     """
 
-    def __init__(self, dataset_dict, structure = (64, 2, 'f'), tau_m='normal', win=50,
+    def __init__(self, dataset_dict, structure = [40, 40], tau_m='log-uniform', win=50,
                  loss_fn='mem_sum', batch_size=256, device='cuda', **extra_kwargs):
         
         '''
@@ -637,7 +652,7 @@ class SNN(Training, nn.Module):
         self.dataset_dict = dataset_dict
         self.structure = structure
         self.tau_m = tau_m
-        self.win = win
+        self.win = win        
         self.loss_fn = loss_fn
         self.batch_size = batch_size
         self.device = device
@@ -646,7 +661,6 @@ class SNN(Training, nn.Module):
         self.extra_kwargs = extra_kwargs # options for delays and mf
 
         self.time_win = win  # win: the time of data, time_win the time of training
-        self.num_simulation_steps = win
 
         # important parameters which are left fixed
         self.mean_tau = 20.0 # perez-nieves
@@ -673,23 +687,18 @@ class SNN(Training, nn.Module):
 
         # Set information about dataset, loss function, surrogate gradient,
         # criterion and optimizer functions (attributes initialized as None)
-        self.num_train_samples = None
-        self.num_input = None
-        self.num_output = None
         self.act_fun = None
         self.criterion = None
         self.output_thresh = None
         self.optimizer = None
 
         # Set features of the network
-        self.num_train_samples = self.dataset_dict['num_training_samples']
-        self.num_input = self.dataset_dict['num_input']
-        self.num_output = self.dataset_dict['num_output']
+#        self.num_train_samples = self.dataset_dict['num_training_samples']
+        self.num_input_i = self.dataset_dict['num_input_i']
+        self.num_input_j = self.dataset_dict['num_input_j']
 
         # # simulation time-step
         # self.step = -1
-
-        self.live = False
 
         self.model_name = ''
 
@@ -705,227 +714,63 @@ class SNN(Training, nn.Module):
             
         self.to(self.device)    
 
-
     def set_layers(self):
-
         '''
         quick option: a tuple of (num_hidden, num_layers, layer_type)
         if layer_type == d, fanin delays are placed in the second-to-last layer. 
         e. g: (48, 2, 'd') --> i-48-d-48-o
         '''
 
-        num_in = self.num_input
-        num_h = self.structure[0]
-        num_o = self.num_output 
-
-        num_hidden_layers = self.structure[1]
-        layer_type = self.structure[2]
-
+        num_in_i = self.num_input_i
+        num_in_j = self.num_input_j
+        num_i = self.structure[0]
+        num_j = self.structure[1]
+ 
         self.layers = nn.ModuleList()
 
         # input layer:
 
-        kwargs = {'num_in': num_in, 
-                  'num_out': num_h,  
+        kwargs = {'num_in_i': num_in_i, 
+                  'num_in_j': num_in_j,
+                  'num_i': num_i,
+                  'num_j': num_j,
+                  'tau_m_i': self.get_tau_m(num_i),
+                  'tau_m_j': self.get_tau_m(num_j),	  
                   'batch_size': self.batch_size, 
+                  'inf_th': False,
                   'device': self.device}
         
-        if self.extra_kwargs != {}:
-            kwargs_extra = kwargs.copy()
-
-            if 'delay_range' in self.extra_kwargs.keys():
-                stride = self.extra_kwargs["delay_range"][1]     
-                rng = self.extra_kwargs["delay_range"][0]  
-                kwargs_extra["fanin_delays"] = torch.tensor(range(0, rng, stride))
-
-                if 'pruned_delays' in self.extra_kwargs.keys(): 
-                    kwargs_extra['pruned_delays'] = self.extra_kwargs['pruned_delays']
-
-            elif 'multifeedforward' in self.extra_kwargs.keys():
-                kwargs_extra['fanin_multifeedforward'] = self.extra_kwargs['multifeedforward']
-            
-        
-        ## input and hidden layers
-        for h_layer in range(num_hidden_layers):
-            
-            if h_layer>0:
-                kwargs['num_in'] = num_h
-                if self.extra_kwargs != {}:
-                    kwargs_extra['num_in'] = num_h
-
-            kwargs['tau_m'] = self.get_tau_m(num_h)
-            if self.extra_kwargs != {}:
-                kwargs_extra['tau_m'] = self.get_tau_m(num_h)
-
-            if layer_type == 'r':
-                self.layers.append(RecurrentSNNLayer(**kwargs))
-            elif layer_type == 'f':
-                self.layers.append(FeedforwardSNNLayer(**kwargs))
-
-            elif layer_type =='d':
-                if h_layer<num_hidden_layers-1:
-                    self.layers.append(FeedforwardSNNLayer(**kwargs))
-                else:
-                    self.layers.append(FeedforwardSNNLayer(**kwargs_extra))
-
-            elif layer_type =='mf':
-                if h_layer<num_hidden_layers-1:
-                    self.layers.append(FeedforwardSNNLayer(**kwargs))
-                else:
-                    self.layers.append(MultiFeedforwardSNNLayer(**kwargs_extra))
-        
-        ## output layer is always feedforward
-        kwargs['num_in'] = num_h
-        kwargs['num_out'] = num_o
-        kwargs['inf_th'] = self.nonfiring_output
-        kwargs['tau_m'] = self.get_tau_m(num_o)
-        self.layers.append(FeedforwardSNNLayer(**kwargs))
-
-
-        # set fifos for the live mode
-        if self.live:
-
-            self.mems_fifo = dict()
-            self.spikes_fifo = dict()
-            
-            for i in range(len(self.layers)):
-                if i == len(self.layers)-1:
-                    name = 'output'
-                else:
-                    name = 'l' + str(i+1)
-                self.mems_fifo[name] = deque(maxlen=self.win)
-                self.spikes_fifo[name] = deque(maxlen=self.win)
-
-            self.reset_state_live()
-
-        self.init_state_logger()
+        self.layers.append(ReciprocalSNNLayer(**kwargs))    
 
 
     def init_state(self):
 
         '''
-        Initially, I let the states to be initialized at __init__
-        but they were added to the compute graph, I had to clone().detach()
-        them before feeding them to update_mem, 
-        and add retain_graph in the backward pass, hurting performance.
-        Now, as in the previous version, the states are completely independent of the
-        layer graph, they act just as external inputs.
         '''
 
-        mems = dict()
-        spikes = dict()
-        queued_spikes = dict()
+        mems_i = dict()
+        mems_j = dict()
+        spikes_i = dict()
+        spikes_j = dict()
 
         for i, layer in enumerate(self.layers):
             
-            num_neurons = layer.num_out
-            num_in = layer.num_in
-            
-            if i == len(self.layers)-1:
-                name = 'output'
-            else:
-                name = 'l' + str(i+1)
+            num_i = layer.num_i
+            num_j = layer.num_j
 
-            mems[name] = torch.zeros(
-                self.batch_size, num_neurons, device=self.device)
-            spikes[name] = torch.zeros(
-                self.batch_size, num_neurons, device=self.device)
-            
-            if layer.pre_delays:
-                max_d = layer.max_d
-                queued_spikes[name] = torch.zeros(
-                    self.batch_size,  max_d+1, num_in, device=self.device)
+            name = 'l' + str(i+1)
 
-        return mems, spikes, queued_spikes
+            mems_i[name] = torch.zeros(
+                self.batch_size, num_i, device=self.device)
+            spikes_i[name] = torch.zeros(
+                self.batch_size, num_i, device=self.device)
+            mems_j[name] = torch.zeros(
+                self.batch_size, num_j, device=self.device)
+            spikes_j[name] = torch.zeros(
+                self.batch_size, num_j, device=self.device)
 
-    def reset_state_live(self):
-        '''
-        same as above, but for live mode. 
-        '''
+        return mems_i, mems_j, spikes_i, spikes_j
 
-        self.mems = dict()
-        self.spikes = dict()
-        self.queued_spikes = dict()
-
-        for i, layer in enumerate(self.layers):
-            
-            num_neurons = layer.num_out
-            num_in = layer.num_in
-            
-            if i == len(self.layers)-1:
-                name = 'output'
-            else:
-                name = 'l' + str(i+1)
-
-            self.mems[name] = torch.zeros(
-                self.batch_size, num_neurons, device=self.device)
-            self.spikes[name] = torch.zeros(
-                self.batch_size, num_neurons, device=self.device)
-            
-            if layer.pre_delays:
-                max_d = layer.max_d
-                self.queued_spikes[name] = torch.zeros(
-                    self.batch_size,  max_d+1, num_in, device=self.device)
-
-
-
-    def init_state_logger(self):
-
-        # Initialization of the dictionary to log the state of the
-        # network if debug is activated
-
-        with torch.no_grad():
-
-            setattr(self, 'mem_state', dict())
-            setattr(self, 'spike_state', dict())        
-
-            if self.debug:
-                self.spike_state['input'] = torch.zeros(
-                    self.win, self.batch_size,
-                    self.num_input, device=self.device)
-                
-            for i, layer in enumerate(self.layers):
-
-                num_neurons = layer.num_out
-
-                if i == len(self.layers)-1:
-                    name = 'output'
-                else:
-                    name = 'l' + str(i+1)
-
-                self.mem_state[name] = torch.zeros(
-                    self.win, self.batch_size,
-                    num_neurons, device=self.device)
-                self.spike_state[name] = torch.zeros(
-                    self.win, self.batch_size,
-                    num_neurons, device=self.device)
-
-
-    def update_logger(self, *args):
-        """
-        Function to log the parameters if debug is activated. It creates a
-        dictionary with the state of the neural network, recording the values
-        of the spikes and membrane voltage for the input, hidden and output
-        layers.
-
-        This function takes as arguments the parameters of the network to log.
-        """
-
-        # Create the dictionary for logging
-        if self.debug:
-            inpt, mems, spikes, step = args
-
-            self.spike_state['input'][step, :, :] = inpt.detach().clone()
-
-            for i in range(len(self.layers)):
-
-                if i == len(self.layers)-1:
-                    name = 'output'
-                else:
-                    name = 'l' + str(i+1)
-
-                self.mem_state[name][step, :, :] = mems[name].detach().clone()
-                self.spike_state[name][step, :, :] = spikes[name].detach().clone()
 
     def get_tau_m(self, num_neurons):
 
@@ -967,12 +812,16 @@ class SNN(Training, nn.Module):
             elif self.tau_m == 'log-uniform-st':
                 max_factor = 0.1
 
-            if num_neurons==self.num_output:
-                log_tau_min = np.log(0.9*self.win)
-                log_tau_max = np.log(1.1*self.win) 
-            else:
-                log_tau_min = np.log(0.1)
-                log_tau_max = np.log(max_factor*self.win)
+            # if num_neurons==self.num_output:
+            #     log_tau_min = np.log(0.9*self.win)
+            #     log_tau_max = np.log(1.1*self.win) 
+            # else:
+            #     log_tau_min = np.log(0.1)
+            #     log_tau_max = np.log(max_factor*self.win)
+
+            log_tau_min = np.log(0.1)
+            log_tau_max = np.log(max_factor*self.win)
+
             U = np.random.uniform(log_tau_min, log_tau_max, size=(num_neurons,))
             
             # Compute M = -log(exp(exp(-U)) - 1)
@@ -983,89 +832,42 @@ class SNN(Training, nn.Module):
 
             return nn.Parameter(torch.tensor(M, dtype=torch.float))        
 
-    @staticmethod
-    def update_queue(tensor, data):
-        '''
-        for tensors of dimensions (batch_size, num_timesteps, num_neurons)
-        '''
-        # nice way
-        tensor = torch.cat((tensor[:, -1:, :], tensor[:, :-1, :]), dim=1) # shif to the right
-        # tensor = torch.roll(tensor, shifts=1, dims=1)  # Shift right by 1 (AI suggested, need to benchmark)
-
-        tensor[:, 0, :] = data
-
-        return tensor
-
-    def forward(self, input):
+    def forward(self, input_i, input_j):
     
-        all_o_mems = []
-        all_o_spikes = []    
+        all_i_mems = torch.zeros(self.win, self.batch_size, self.structure[0], device=self.device)
+        all_i_spikes = torch.zeros(self.win, self.batch_size, self.structure[0], device=self.device) 
+        all_j_mems = torch.zeros(self.win, self.batch_size, self.structure[1], device=self.device)
+        all_j_spikes = torch.zeros(self.win, self.batch_size, self.structure[1], device=self.device)   
 
-        mems, spikes, queued_spikes = self.init_state()
+        mems_i, mems_j, spikes_i, spikes_j = self.init_state()
 
-        self.spike_count = 0.0
-        
-        for step in range(self.num_simulation_steps):
+        for step in range(self.win):
 
-            prev_spikes = input[:, step, :].view(self.batch_size, -1)
+            prev_spikes_i = input_i[:, step, :].view(self.batch_size, -1)
+            prev_spikes_j = input_j[:, step, :].view(self.batch_size, -1)
 
-            for layer, key in zip(self.layers, spikes.keys()):
+            for layer, key in zip(self.layers, spikes_i.keys()):
 
-                if layer.pre_delays:
-                    queued_spikes[key] = self.update_queue(queued_spikes[key], prev_spikes)
-                    #prev_spikes = queued_spikes[key][:, layer.delays, :].transpose(1, 2).clone().detach() # is transpose necessary?
-                    prev_spikes = queued_spikes[key][:, layer.delays, :].transpose(1, 2)
+                # prev_spikes_i, prev_spikes_j, own_mems_i, own_mems_j, own_spikes_i, own_spikes_j
 
-                mems[key], spikes[key] = layer(prev_spikes, mems[key], spikes[key]) 
-                prev_spikes = spikes[key]
+                mems_i[key], mems_j[key], spikes_i[key], spikes_j[key] = layer(prev_spikes_i,
+                                                                            prev_spikes_j,
+                                                                            mems_i[key],
+                                                                            mems_j[key],
+                                                                            spikes_i[key],
+                                                                            spikes_j[key])
 
-                self.spike_count += prev_spikes.sum().item()
+                prev_spikes_i = spikes_i[key]
+                prev_spikes_j = spikes_j[key]
             
-            # remove spikes  of last layer from spike count
-            self.spike_count -= prev_spikes.sum().item()
+            # # append results to activation list
+            all_i_mems[step, :, :] = mems_i[key]
+            all_i_spikes[step, :, :] = spikes_i[key]
+            all_j_mems[step, :, :] = mems_j[key]
+            all_j_spikes[step, :, :] = spikes_j[key]
 
-            # store results
-            self.update_logger(input[:, step, :].view(self.batch_size, -1), mems, spikes, step)
-
-            # append results to activation list
-            all_o_mems.append(mems[key])
-            all_o_spikes.append(spikes[key])
-
-        return all_o_mems, all_o_spikes
+        return all_i_mems, all_j_mems, all_i_spikes, all_j_spikes
     
-
-    def forward_live(self, input):
-    
-        mems = self.mems
-        spikes = self.spikes
-        queued_spikes = self.queued_spikes
-
-        self.spike_count = 0.0
-        
-        prev_spikes = input.view(self.batch_size, -1)
-
-        for layer, key in zip(self.layers, spikes.keys()):
-
-            if layer.pre_delays:
-                queued_spikes[key] = self.update_queue(queued_spikes[key], prev_spikes)
-                #prev_spikes = queued_spikes[key][:, layer.delays, :].transpose(1, 2).clone().detach() # is transpose necessary?
-                prev_spikes = queued_spikes[key][:, layer.delays, :].transpose(1, 2)
-
-            mems[key], spikes[key] = layer(prev_spikes, mems[key], spikes[key]) 
-            prev_spikes = spikes[key]
-
-            self.spike_count += prev_spikes.sum().item()
-        
-        # remove spikes  of last layer from spike count
-        self.spike_count -= prev_spikes.sum().item()
-
-        # store results
-        #self.update_logger(input[:, step, :].view(self.batch_size, -1), mems, spikes, step)
-
-        #return mems[key].detach().clone(), spikes[key].detach().clone()
-        return mems, spikes
-
-
     def save_model(self, model_name='rsnn', directory='default'):
         """
         Function to save model

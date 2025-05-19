@@ -32,6 +32,7 @@ train_dataset = CustomDataset(train_data, train_labels)
 test_dataset = CustomDataset(test_data, test_labels)
 
 dataset_dict = train_dataset.get_train_attributes()
+print(dataset_dict)
 dataset_dict["dataset_name"] = "letters4"
 
 cached_train_dataset = MemoryCachedDataset(train_dataset, device=device)
@@ -39,7 +40,6 @@ cached_test_dataset = MemoryCachedDataset(test_dataset, device=device)
 
 total_time = train_data.shape[1]
 print(f'num timesteps per sample: {total_time}')
-batch_size = 128
 
 train_loader = DataLoader(cached_train_dataset,
                             batch_size=batch_size,
@@ -58,7 +58,7 @@ test_loader = DataLoader(cached_test_dataset,
 model_params = {'dataset_dict': dataset_dict,
                  'win':time_window,
                  'tau_m': 'log-uniform-st',
-                 'loss_fn':'mem_prediction', 
+                 'loss_fn':'mem_sum', 
                  'batch_size':batch_size,
                  'device':device,
                  'debug':False,
@@ -120,7 +120,7 @@ if __name__ == "__main__":
 
     multiprocessing.set_start_method("spawn")
 
-    num_repetitions = 2
+    num_repetitions = 1
     repetitions = range(num_repetitions)
     cfg_ids = range(len(cfgs))
     #configs = list(itertools.product(cfg_ids, repetitions))

@@ -167,7 +167,6 @@ def plot_per_epoch(data, label='', ax=None):
 
     return ax
 
-
 def training_plots(snn, savefig_dir=None):
     """
     Function to represent train loss, test loss, accuracy and spike

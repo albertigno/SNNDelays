@@ -83,7 +83,7 @@ alberto: this is a modification of tonic's MemoryCachedDataset to handle numpy-f
 
 # AI-version
 @dataclass
-class MemoryCachedDataset:
+class GPUMemoryCachedDataset:
     """Highly optimized GPU-cached dataset for consistent-shaped samples.
     
     Features:

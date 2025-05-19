@@ -5,6 +5,7 @@ from sklearn.metrics import recall_score
 from sklearn.metrics import f1_score
 from sklearn.metrics import precision_recall_fscore_support
 from snn_delays.utils.hw_aware_utils import pool_delays, quantize_weights, prune_weights, modify_weights
+from snn_delays.utils.visualization_utils import training_plots
 from torch.optim.lr_scheduler import StepLR
 import torch.cuda.amp as amp
 import numpy as np
@@ -77,6 +78,9 @@ def train(snn, train_loader, test_loader, learning_rate, num_epochs,
                 test_behavior(snn, ckpt_dir, loader, test_every)
         else:        
             test_behavior(snn, ckpt_dir, test_loader, test_every)
+
+    # by default, plot curves at the end of the training
+    training_plots(snn)
 
     # empty the cuda cache after every training session
     torch.cuda.empty_cache()
