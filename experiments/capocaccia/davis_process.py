@@ -59,7 +59,7 @@ def slicing_callback(events: dv.EventStore):
     # print(np.max(frame.image))
     # print(np.min(frame.image))
 
-    processed_frame, result = process_image(frame.image, 32)
+    processed_frame, result = process_image(frame.image, 45)
 
     print(np.min(processed_frame))
     print(np.max(processed_frame))

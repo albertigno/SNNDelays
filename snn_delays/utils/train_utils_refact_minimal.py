@@ -24,7 +24,7 @@ def get_device():
 
 def train(snn, train_loader, test_loader, learning_rate, num_epochs,
           lr_tau=0.1, scheduler=(1, 0.98), ckpt_dir='checkpoint',
-          test_behavior=None, test_every=5, verbose=True, clear=False, **kwargs):
+          test_behavior=None, test_every=5, verbose=True, clear=False, freeze_taus=True, **kwargs):
     """
     lr scale: originally I worked with same (1.0, 1.0 )lr for base (weights)
     tau_m, tau_adp
@@ -37,10 +37,11 @@ def train(snn, train_loader, test_loader, learning_rate, num_epochs,
 
     weight_params = weight_params + [param for name, param in snn.named_parameters() if 'f' in name]
 
-    if 'freeze_taus' in kwargs.keys():
-        if kwargs['freeze_taus']:
-            for param in tau_m_params:
-                param.requires_grad = False
+    # if 'freeze_taus' in kwargs.keys():
+    #     if kwargs['freeze_taus']:
+    if freeze_taus:
+        for param in tau_m_params:
+            param.requires_grad = False
 
     optimizer = torch.optim.Adam([
         {'params': weight_params},

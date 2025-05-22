@@ -23,6 +23,7 @@ import tonic.datasets as datasets
 import tonic.transforms as transforms
 from snn_delays.config import DATASET_PATH
 from snn_delays.datasets.transforms_tonic import *
+from snn_delays.datasets.davis240c import DAVIS240C
 #from snn_delays.datasets.custom_datasets import LIPSFUS
 np.random
 
@@ -37,7 +38,7 @@ class TonicDataset:
 
     def __init__(self, dataset_name, total_time, sensor_size_to=None,
                  crop_to=None, one_polarity=False, merge_polarity=False, 
-                 random_crop_to=None):
+                 random_crop_to=None, folder_name=None):
 
         # Initialization of attributes
         self.dataset_name = dataset_name
@@ -55,6 +56,7 @@ class TonicDataset:
                     'sensor_size': datasets.NMNIST.sensor_size},
             'ibm_gestures': {'n_classes': 11,
                     'sensor_size': datasets.DVSGesture.sensor_size},
+            'davis':  {'sensor_size': DAVIS240C.sensor_size},
             'smnist': {'n_classes': 10,
                     'sensor_size': (99, 1, 1)},
             'stmnist': {'n_classes': 10,
@@ -62,7 +64,7 @@ class TonicDataset:
             'lipsfus': {'n_classes': 10,
                     'sensor_size': (256, 1, 1)}
         }
-        self.n_classes = parameter_dataset[self.dataset_name]['n_classes']
+        #self.n_classes = parameter_dataset[self.dataset_name]['n_classes']
         #self.duration_ms = parameter_dataset[self.dataset_name]['duration_ms']
 
         original_sensor_size = \
@@ -72,12 +74,18 @@ class TonicDataset:
         list_sample_transform = list()
         #list_label_transform = list()
 
+        # center crop to 180 by 180 for the DAVIS
+        if self.dataset_name == 'davis':
+            list_sample_transform.append(
+                transforms.CenterCrop(sensor_size=original_sensor_size, size=(180, 180)))
+            original_sensor_size = (180, 180, 2)
+
         # Sensor size and down-sampling factor
         sensor_size_list = list(original_sensor_size)
         spatial_factor = None
 
         if sensor_size_to is not None:
-            if self.dataset_name in ['nmnist', 'ibm_gestures']:
+            if self.dataset_name in ['nmnist', 'ibm_gestures', 'davis']:
                 sensor_size_list[0:-1] = \
                     [sensor_size_to] * (len(sensor_size_list) - 1)
                 target_size = (sensor_size_to, sensor_size_to)
@@ -129,8 +137,6 @@ class TonicDataset:
             #                                  noise_threshold=10, 
             #                                  differentiator_time_bins=2))
 
-        
-
         # Define final transformations
         list_sample_transform.append(
             transforms.ToFrame(
@@ -139,6 +145,9 @@ class TonicDataset:
         print(list_sample_transform)
 
         self.sample_transform = transforms.Compose(list_sample_transform)
+        #self.label_transform = transforms.ToOneHotEncoding(n_classes=self.n_classes)
+
+    def set_target_transform(self):
         self.label_transform = transforms.ToOneHotEncoding(n_classes=self.n_classes)
 
     def get_train_attributes(self):
@@ -181,6 +190,9 @@ class SHDDataset(TonicDataset):
                          total_time=total_time,
                          **kwargs)
         
+        self.n_classes = 20
+        self.set_target_transform()
+        
         # Train and test dataset definition
         self.train_dataset = datasets.SHD(
             save_to=self.PATH,
@@ -214,6 +226,9 @@ class SSCDataset(TonicDataset):
         super().__init__(dataset_name=dataset_name,
                          total_time=total_time,
                          **kwargs)
+        
+        self.n_classes = 35
+        self.set_target_transform()
 
         # Train and test dataset definition
         self.train_dataset = datasets.SSC(
@@ -248,6 +263,9 @@ class NMNISTDataset(TonicDataset):
         super().__init__(dataset_name=dataset_name,
                          total_time=total_time,
                          **kwargs)
+        
+        self.n_classes = 10
+        self.set_target_transform()
 
         # Train and test dataset definition
         self.train_dataset = datasets.NMNIST(
@@ -283,6 +301,9 @@ class IbmGesturesDataset(TonicDataset):
         super().__init__(dataset_name=dataset_name,
                          total_time=total_time,
                          **kwargs)
+        
+        self.n_classes = 11
+        self.set_target_transform()
 
         # Train and test dataset definition
         self.train_dataset = datasets.DVSGesture(
@@ -320,6 +341,9 @@ class SMNISTDataset(TonicDataset):
         super().__init__(dataset_name=dataset_name,
                          total_time=total_time,
                          **kwargs)
+        
+        self.n_classes = 10
+        self.set_target_transform()
 
         # Train and test dataset definition
         self.train_dataset = datasets.SMNIST(
@@ -335,5 +359,55 @@ class SMNISTDataset(TonicDataset):
             train=False,
             num_neurons=self.sensor_size[0],
             dt=1.0,
+            transform=self.sample_transform,
+            target_transform=self.label_transform)
+
+
+
+class DAVIS240Dataset(TonicDataset):
+    """
+    DAVIS240
+    the expcted file structure is:
+    
+    -train
+        - class 1
+            -sample 1
+            -sample 2
+            -etc  
+        - class 2
+        - etc
+    test
+        - class 1
+            -sample 1
+            -sample 2
+            -etc  
+        - class 2
+        - etc
+
+    """
+
+    def __init__(self, dataset_name='davis', total_time=50, **kwargs):
+        super().__init__(dataset_name=dataset_name,
+                         total_time=total_time,
+                         **kwargs)
+
+        path = os.path.join(DATASET_PATH, kwargs['folder_name'])
+        test_path = os.path.join(path, 'test')
+        train_path = os.path.join(path, 'train')
+
+        self.n_classes = self.classes = len([entry for entry in os.listdir(train_path)
+                                             if os.path.isdir(os.path.join(train_path, entry))])
+        self.set_target_transform()
+
+        # Train and test dataset definition
+        self.train_dataset = DAVIS240C(
+            save_to='',
+            parent_dir=train_path,
+            transform=self.sample_transform,
+            target_transform=self.label_transform)
+
+        self.test_dataset = DAVIS240C(
+            save_to='',
+            parent_dir=test_path,
             transform=self.sample_transform,
             target_transform=self.label_transform)

@@ -10,11 +10,15 @@ import time
 #symbols = ['I']
 
 #symbols = ['C', 'A', 'P', 'O', 'C', 'A', 'C', 'C', 'I', 'A']
+symbols = ['O']
 
-symbols = ['P']
+#symbols = ['P']
 
-frequency = 10  # Hz (symbols will change every 1 second)
-duration_per_symbol = 1 / frequency
+frequency = 25  # Hz (symbols will change every 1 second)
+blank_duration = 0.01 # 10 ms
+
+duration_per_symbol = (1 / frequency) - blank_duration
+
 font_scales = [5, 6, 7, 8]
 fonts = [
     cv2.FONT_HERSHEY_SIMPLEX,
@@ -27,14 +31,17 @@ fonts = [
 # Display loop
 cv2.namedWindow("Symbols", cv2.WINDOW_NORMAL)
 #cv2.moveWindow("Symbols", 900, 270) # screen 1
-cv2.moveWindow("Symbols", 2250, 230) # screen 2
-#cv2.moveWindow("Symbols", 3150, 450) # screen 3
+#cv2.moveWindow("Symbols", 2250, 230) # screen 2
+cv2.moveWindow("Symbols", 3150, 450) # screen 3
+
 cv2.resizeWindow("Symbols", 600, 600)
+
+blank_img = np.zeros((600, 600, 3), dtype=np.uint8)
 
 while True:
     # Randomly shuffle the symbols
     #random.shuffle(symbols)
-    #time.sleep(1)
+    #time.sleep(0.01) # 10 ms so there is a small trancision between letters
     for symbol in symbols:
 
         # pick font randomly
@@ -68,6 +75,11 @@ while True:
         cv2.imshow("Symbols", img)
 
         key = cv2.waitKey(int(duration_per_symbol * 1000))
+
+        cv2.imshow("Symbols", blank_img)
+
+        key = cv2.waitKey(int(blank_duration * 1000))
+
         if key == 27:  # ESC to quit
             cv2.destroyAllWindows()
             exit()

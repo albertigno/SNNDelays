@@ -5,6 +5,16 @@ import matplotlib.pyplot as plt
 import os
 from snn_delays.config import CHECKPOINT_PATH
 
+
+def getattr_dotted(obj, attr_str):
+    '''
+    auxiliary function to get the attribute of an object using a string
+    with dots e.g getattr_dotted(snn, 'layers.0.linear.weight').
+    '''
+    for attr in attr_str.split('.'):
+        obj = getattr(obj, attr)
+    return obj
+
 def modify_weights(layer, value, mode='mask', trainable=True):
     """
     Function to mask weights
@@ -19,19 +29,19 @@ def modify_weights(layer, value, mode='mask', trainable=True):
     #print(layer.device)
     #device = layer.device
 
-    value = torch.Tensor(value).to(layer.weight.device)
+    value = torch.Tensor(value).to(layer.device)
 
-    if layer.weight.data.shape == value.shape:
-        new_weight = value if mode=='replace' else layer.weight.data * value
-        layer.weight = torch.nn.Parameter(
+    if layer.data.shape == value.shape:
+        new_weight = value if mode=='replace' else layer.data * value
+        layer = torch.nn.Parameter(
             new_weight, requires_grad=trainable)
     else:
         print(f'Mask weights failed: dimension mismatch. make sure the '
-              f'weights are shape {layer.weight.data.shape}')
+              f'weights are shape {layer.data.shape}')
 
 def scale_weights(layer, scale_factor):
-    value = scale_factor*layer.weight.data
-    layer.weight = torch.nn.Parameter(
+    value = scale_factor*layer.data
+    layer = torch.nn.Parameter(
         value, requires_grad=True)    
     #modify_weights(layer, value, 'replace')
 
@@ -117,7 +127,9 @@ def quantize_weights(snn, bits, last_layer=False, symmetry=True, print_info=Fals
         num_bins = 2 ** bits + 1
 
     # Get the name of all the layers
-    layer_names = copy.deepcopy( snn.__dict__['base_params_names'] )   # otherwise "if not last_layer:" below will modify the orig list
+    #layer_names = copy.deepcopy( snn.__dict__['base_params_names'] )   
+    weight_param_names = [name for name, param in snn.named_parameters() if 'linear' in name]
+    layer_names = copy.deepcopy( weight_param_names ) # otherwise "if not last_layer:" below will modify the orig list
 
     # Don't apply quantization in the last layer if last_layer=False
     if not last_layer:
@@ -130,16 +142,17 @@ def quantize_weights(snn, bits, last_layer=False, symmetry=True, print_info=Fals
         for _layer in layer_names:
 
             # Get the layer and their weights
-            layer = getattr(snn, _layer)
+            layer = getattr_dotted(snn, _layer)
 
             # max_weight = 0.16384
-            max_weight = torch.max(torch.abs(layer.weight.data)).cpu().numpy()
+            max_weight = torch.max(torch.abs(layer.data)).cpu().numpy()
+            
 
             # Quantize weights of the layers
             if type(bits) == int:                # int histogram-based
-                new_weights = hist_quantize(layer.weight.data, num_bins, symmetry, max_weight).to(torch.float32)
+                new_weights = hist_quantize(layer.data, num_bins, symmetry, max_weight).to(torch.float32)
             elif bits == 'bf16':                 # brain float 16bit
-                new_weights = layer.weight.data.to(torch.bfloat16).to(torch.float32)
+                new_weights = layer.data.to(torch.bfloat16).to(torch.float32)
             else:
                 raise (f'quantization {bits} not supported (yet)')
 
@@ -148,7 +161,7 @@ def quantize_weights(snn, bits, last_layer=False, symmetry=True, print_info=Fals
             if print_info:
                 print(f'----{_layer}----')
                 u_nl = torch.unique(new_weights)
-                u_ol = torch.unique(layer.weight)
+                u_ol = torch.unique(layer)
 
                 print(f'n_unique before quantization: {u_ol.size()[0]}, {(u_ol>0).sum().item()} pos {(u_ol<0).sum().item()} neg')
                 print(f'max_value before quantization: {max(abs(u_ol)).item()}' )
@@ -379,7 +392,7 @@ def pool_delays(snn, mode='synaptic', lyr='iho', k=1, freeze=True):
                             trainable=trainable)
     
 
-def get_w_from_proj_name(snn, proj_name):
+def get_w_from_proj_name_old(snn, proj_name):
 
     w = None
 
@@ -407,6 +420,24 @@ def get_w_from_proj_name(snn, proj_name):
                     snn.num_neurons_list[i+1], snn.num_neurons_list[i], num_d)
 
     assert w is not None, f"[Error]: provide a valid projection name: f0_i, {snn.proj_names}"
+
+    return w
+
+
+def get_w_from_proj_name(snn, layer_name):
+
+    '''
+    only works for feedforward networks
+    need to implement a more general version for delays
+    the old version only works for strided delays
+    '''
+
+    layer_num = int(layer_name.split('.')[1])
+
+    num_in = snn.layers[layer_num].num_in
+    num_out = snn.layers[layer_num].num_out
+
+    w = getattr_dotted(snn, layer_name).data.reshape(num_out, num_in, 1)
 
     return w
 
@@ -485,12 +516,14 @@ def save_weights_delays(snn, path = 'default', format='split', prun_type = 'syna
 
         #### need to consider different snn.delay_type
 
-        layers = snn.proj_names
+        #layers = snn.proj_names
 
-        if 'i' in snn.delay_type:
-            layers = ['f0_f1'] + layers    
-        else:
-             np.save(os.path.join(layers_path, f'f0_f1_weights'), snn.f0_f1.weight.data.cpu().numpy())
+        layers = [name for name, param in snn.named_parameters() if 'linear' in name]
+
+        # if 'i' in snn.delay_type:
+        #     layers = ['f0_f1'] + layers    
+        # else:
+        #      np.save(os.path.join(layers_path, f'f0_f1_weights'), snn.f0_f1.weight.data.cpu().numpy())
 
         #layers = ['f0_f1'] + layers
         for layer in layers:

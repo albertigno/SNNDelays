@@ -16,7 +16,9 @@ device = get_device()
 #dataset = 'SOX_01.npy'
 #dataset = 'xiao_hong_shu.npy'
 #dataset = 'C.npy'
-dataset = os.path.join(DATASET_PATH, 'Capocaccia', 'randomcaccia.npy')
+dataset = 'capo_50Hz.npy'
+
+#dataset = os.path.join(DATASET_PATH, 'Capocaccia', 'randomcaccia.npy')
 
 
 if dataset == 'ibm_gestures':
@@ -34,7 +36,8 @@ if dataset == 'ibm_gestures':
     train_loader, test_loader, dataset_dict = DL.get_dataloaders()
 
 else:
-    test_loader = np.load(dataset)[:1000]
+    test_loader = np.load(dataset)
+    #test_loader = np.load(dataset)[:1000]
     print(test_loader.shape)
 
 cv.namedWindow("Preview", cv.WINDOW_NORMAL)
@@ -47,9 +50,16 @@ slider_value = 0
 cv.createTrackbar("Frame", "Preview", 0, len(test_loader) - 1, on_trackbar)
 
 while True:
+    
+    #slider_value += 1    
+    
     im_step = test_loader[slider_value]
 
-    frame = im_step[0, 0, :, :].astype(np.float)/255.0
+    # frame = im_step[0, 0, :, :].astype(np.float)/255.0
+    # #frame = im_step[0, 0, :, :].astype(np.float)
+
+    frame = im_step
+    #frame = im_step[0, 0, :, :].astype(np.float)
 
     print(np.max(frame))
     print(np.min(frame))
