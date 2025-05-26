@@ -23,7 +23,6 @@ import tonic.datasets as datasets
 import tonic.transforms as transforms
 from snn_delays.config import DATASET_PATH
 from snn_delays.datasets.transforms_tonic import *
-from snn_delays.datasets.davis240c import DAVIS240C
 #from snn_delays.datasets.custom_datasets import LIPSFUS
 np.random
 
@@ -56,7 +55,7 @@ class TonicDataset:
                     'sensor_size': datasets.NMNIST.sensor_size},
             'ibm_gestures': {'n_classes': 11,
                     'sensor_size': datasets.DVSGesture.sensor_size},
-            'davis':  {'sensor_size': DAVIS240C.sensor_size},
+            'davis':  {'sensor_size': (240, 180, 2)},
             'smnist': {'n_classes': 10,
                     'sensor_size': (99, 1, 1)},
             'stmnist': {'n_classes': 10,
@@ -364,50 +363,3 @@ class SMNISTDataset(TonicDataset):
 
 
 
-class DAVIS240Dataset(TonicDataset):
-    """
-    DAVIS240
-    the expcted file structure is:
-    
-    -train
-        - class 1
-            -sample 1
-            -sample 2
-            -etc  
-        - class 2
-        - etc
-    test
-        - class 1
-            -sample 1
-            -sample 2
-            -etc  
-        - class 2
-        - etc
-
-    """
-
-    def __init__(self, dataset_name='davis', total_time=50, **kwargs):
-        super().__init__(dataset_name=dataset_name,
-                         total_time=total_time,
-                         **kwargs)
-
-        path = os.path.join(DATASET_PATH, kwargs['folder_name'])
-        test_path = os.path.join(path, 'test')
-        train_path = os.path.join(path, 'train')
-
-        self.n_classes = self.classes = len([entry for entry in os.listdir(train_path)
-                                             if os.path.isdir(os.path.join(train_path, entry))])
-        self.set_target_transform()
-
-        # Train and test dataset definition
-        self.train_dataset = DAVIS240C(
-            save_to='',
-            parent_dir=train_path,
-            transform=self.sample_transform,
-            target_transform=self.label_transform)
-
-        self.test_dataset = DAVIS240C(
-            save_to='',
-            parent_dir=test_path,
-            transform=self.sample_transform,
-            target_transform=self.label_transform)

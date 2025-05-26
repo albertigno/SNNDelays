@@ -5,12 +5,19 @@ import numpy as np
 from skimage.transform import resize
 import torch
 
+'''
+DAVIS dataset saved as numpy arrays
+'''
+
+
 from davis_functions import process_image, accumulator
 #from cool_vizualizer_tools import draw_mems, draw_spks
 # Open any camera
 
 from snn_delays.utils.model_loader_refac import ModelLoader
 #snn = ModelLoader('ibm_gest_ffw', 'capocaccia_live', 1, 'cpu', live = True)
+
+size = 128  # Size of the input image for the model
 
 snn = ModelLoader('capo1_f_7329608938547486', 'capocaccia', 1, 'cpu', live = True)
 
@@ -56,14 +63,14 @@ def slicing_callback(events: dv.EventStore):
     frame = accumulator.generateFrame()
 
     #processed_frame, result = process_image(frame.image, 32) # gestures32
-    processed_frame, result = process_image(frame.image, 128)
+    processed_frame, result = process_image(frame.image, size)
 
     result = torch.from_numpy(result).permute(2, 0, 1).unsqueeze(0)
 
     print(torch.min(result))
     print(torch.max(result))
 
-    pred = snn.propagate_live(result) 
+    pred = snn.propagate_live(result)
 
     print(pred)
 

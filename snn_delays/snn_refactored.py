@@ -192,8 +192,12 @@ class Training:
                 outputs = F.softmax(m, dim=1)
 
             elif l_f == 'spk_count':
+                outputs = torch.zeros(
+                self.batch_size, self.num_output, device=self.device)
+                for o_spk in self.spikes_fifo['output']:
+                    outputs = outputs + o_spk
                 # outputs = outputs/self.win   #normalized         
-                outputs = torch.sum(torch.stack(self.spikes_fifo['output'], dim=1), dim = 1)/self.win
+                # outputs = torch.sum(outputs, dim = 1)/self.win
 
             elif l_f == 'mem_prediction':
 
@@ -557,6 +561,7 @@ class FeedforwardSNNLayer(DelayedSNNLayer):
         self.thresh = float('inf') if inf_th else 0.3
 
         if self.pre_delays:
+            ### as the mask is adding zeros, the non-zero weights are multiplied by a factor
             with torch.no_grad():
                 scale_factor = torch.sqrt(self.max_d / self.pruned_delays).item()
                 self.linear.weight *= scale_factor
@@ -692,10 +697,13 @@ class SNN(Training, nn.Module):
         self.live = False
 
         self.model_name = ''
+        self.last_model_name = None
+        self.last_max_model_name = None
 
         # set loss function
         if self.loss_fn == 'spk_count':
             self.criterion = nn.MSELoss()
+            self.nonfiring_output = False
         elif self.loss_fn == 'mem_mot' or self.loss_fn == 'mem_sum' or self.loss_fn == 'mem_last':
             self.criterion = nn.CrossEntropyLoss()
             self.nonfiring_output = True

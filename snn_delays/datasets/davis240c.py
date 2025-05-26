@@ -6,7 +6,8 @@ from typing import Callable, Optional
 import numpy as np
 
 from tonic.dataset import Dataset
-
+from tonic_datasets import TonicDataset
+from snn_delays.config import DATASET_PATH
 
 class DAVIS240C(Dataset):
     """
@@ -117,3 +118,52 @@ class DAVIS240C(Dataset):
             self._is_file_present()
             and self._folder_contains_at_least_n_files_of_type(100, ".npy")
         )
+
+
+class DAVIS240Dataset(TonicDataset):
+    """
+    DAVIS240
+    the expcted file structure is:
+    
+    -train
+        - class 1
+            -sample 1
+            -sample 2
+            -etc  
+        - class 2
+        - etc
+    test
+        - class 1
+            -sample 1
+            -sample 2
+            -etc  
+        - class 2
+        - etc
+
+    """
+
+    def __init__(self, dataset_name='davis', total_time=50, **kwargs):
+        super().__init__(dataset_name=dataset_name,
+                         total_time=total_time,
+                         **kwargs)
+
+        path = os.path.join(DATASET_PATH, kwargs['folder_name'])
+        test_path = os.path.join(path, 'test')
+        train_path = os.path.join(path, 'train')
+
+        self.n_classes = self.classes = len([entry for entry in os.listdir(train_path)
+                                             if os.path.isdir(os.path.join(train_path, entry))])
+        self.set_target_transform()
+
+        # Train and test dataset definition
+        self.train_dataset = DAVIS240C(
+            save_to='',
+            parent_dir=train_path,
+            transform=self.sample_transform,
+            target_transform=self.label_transform)
+
+        self.test_dataset = DAVIS240C(
+            save_to='',
+            parent_dir=test_path,
+            transform=self.sample_transform,
+            target_transform=self.label_transform)

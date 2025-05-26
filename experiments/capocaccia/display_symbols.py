@@ -31,8 +31,8 @@ fonts = [
 # Display loop
 cv2.namedWindow("Symbols", cv2.WINDOW_NORMAL)
 #cv2.moveWindow("Symbols", 900, 270) # screen 1
-#cv2.moveWindow("Symbols", 2250, 230) # screen 2
-cv2.moveWindow("Symbols", 3150, 450) # screen 3
+cv2.moveWindow("Symbols", 2250, 230) # screen 2
+# cv2.moveWindow("Symbols", 3150, 450) # screen 3
 
 cv2.resizeWindow("Symbols", 600, 600)
 
