@@ -124,7 +124,7 @@ if __name__ == "__main__":
 
     multiprocessing.set_start_method("spawn")
 
-    num_repetitions = 2
+    num_repetitions = 5
     repetitions = range(num_repetitions)
     cfg_ids = range(len(cfgs_rd))
     #configs = list(itertools.product(cfg_ids, repetitions))
