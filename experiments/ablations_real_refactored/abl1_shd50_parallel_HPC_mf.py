@@ -38,7 +38,7 @@ train_loader, test_loader, dataset_dict = DL.get_dataloaders()
 model_params = {'dataset_dict': dataset_dict, 'win':total_time,
                  'loss_fn':'mem_sum', 'batch_size':batch_size, 'device':device}
 
-train_params = {'learning_rate':1e-3, 'num_epochs':5, 'spk_reg':0.0, 'lr_tau': 0.1,
+train_params = {'learning_rate':1e-3, 'num_epochs':100, 'spk_reg':0.0, 'lr_tau': 0.1,
                  'scheduler':(10, 0.95), 'ckpt_dir':ckpt_dir, 'test_behavior':tb_save_max_last_refact,
                 'freeze_taus':True, 'test_every':1, 'clear':False, 'verbose':False}
 
