@@ -5,6 +5,8 @@ import numpy as np
 from skimage.transform import resize
 import torch
 import tonic.transforms as transforms
+from collections import deque
+
 
 '''
 DAVIS events processed directly by tonic
@@ -59,9 +61,14 @@ tonic_dtype = np.dtype([("x", np.int16), ("y", np.int16), ("p", bool), ("t", np.
 
 sensor_size = (240, 180, 2)
 transforms_list = []
+
+# transforms_list.append(
+#     transforms.CenterCrop(sensor_size=sensor_size, size=(180, 180)))
+# cropped_sensor_size = (180, 180, 2)
+
 transforms_list.append(
-    transforms.CenterCrop(sensor_size=sensor_size, size=(180, 180)))
-cropped_sensor_size = (180, 180, 2)
+    transforms.CenterCrop(sensor_size=sensor_size, size=(128, 128)))
+cropped_sensor_size = (128, 128, 2)
 
 target_size = (size, size)
 spatial_factor = \
@@ -75,6 +82,10 @@ transforms_list.append(
         sensor_size=(size, size, 2), n_time_bins=1))
 
 to_frame = transforms.Compose(transforms_list)
+
+
+# create a deque to store the last 10 frames (5 seconds)
+saved_frames = deque(maxlen=1000)
 
 # Declare the callback method for slicer
 def slicing_callback(events: dv.EventStore):
@@ -122,7 +133,7 @@ def slicing_callback(events: dv.EventStore):
         else:
             frame = np.zeros((1, 2, size, size)).astype(np.int16)
 
-        
+        saved_frames.append(frame)
 
         pred = snn.propagate_live(torch.from_numpy(frame))
 
@@ -153,13 +164,6 @@ def slicing_callback(events: dv.EventStore):
 
         cv.imshow("Input", 255*frame[0, 0, :, :].astype(np.uint8))
 
-        key = cv.waitKey(1)
-
-        if key & 0xFF == ord('p'):
-            while True:
-                key = cv.waitKey(0)
-                if key == ord('p'):
-                    break
 
 # Register a callback every 33 milliseconds
 slicer.doEveryTimeInterval(timedelta(milliseconds=slice_time), slicing_callback)
@@ -174,3 +178,11 @@ while capture.isRunning():
         # print(f"Received {len(events)} events")
         # If so, pass the events into the slicer to handle them
         slicer.accept(events)
+
+        key = cv.waitKey(1)
+        if key == ord('q'):
+            break
+
+saved_frames = np.array(saved_frames)
+print(f"Saved frames shape: {saved_frames.shape}")
+np.save('davis_frames_X.npy', saved_frames)

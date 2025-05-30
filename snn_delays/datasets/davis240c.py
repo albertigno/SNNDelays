@@ -6,7 +6,7 @@ from typing import Callable, Optional
 import numpy as np
 
 from tonic.dataset import Dataset
-from tonic_datasets import TonicDataset
+from snn_delays.datasets.tonic_datasets import TonicDataset
 from snn_delays.config import DATASET_PATH
 
 class DAVIS240C(Dataset):

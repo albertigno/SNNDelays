@@ -197,8 +197,12 @@ def get_results_refact(ckpt_dir, sweep_params_names, rpts=3, mode='max', ablatio
                     clear_output(wait=True)
                     max_acc = snn.acc[-1][-1]
                     # spikes per timestep per neuron
-                    print(snn.test_spk_count[-1][-1])
-                    # spike_density = len(snn.num_neurons_list)*snn.test_spk_count[-1][-1] / snn.win
+                    if snn.test_spk_count[-1][-1] is not None:
+                       num_neurons = snn.structure[0]
+                       print(f'num_neurons: {num_neurons}')
+                       spike_density = snn.structure[1]*snn.test_spk_count[-1][-1] / (snn.win*num_neurons)
+                    else:
+                        spike_density = None
                     # spikes per timestep in total
                     # spike_per_time = spike_density*sum(snn.num_neurons_list)
                     model_loaded_flag = True
@@ -211,16 +215,16 @@ def get_results_refact(ckpt_dir, sweep_params_names, rpts=3, mode='max', ablatio
             # Save results acc
             if f'{model_config}' not in acc.keys():            
                 acc[model_config] = [max_acc]
-                #spk[model_config] = [spike_density]
+                spk[model_config] = [spike_density]
                 train_loss[model_config] = [snn.train_loss]
                 test_loss[model_config] = [snn.test_loss]
             else:
                 acc[model_config].append(max_acc)
-                #spk[model_config].append(spike_density)
+                spk[model_config].append(spike_density)
                 train_loss[model_config].append(snn.train_loss)
                 test_loss[model_config].append(snn.test_loss)
 
-    results = (acc, train_loss, test_loss)
+    results = (acc, spk, train_loss, test_loss)
 
     return results
 
@@ -294,7 +298,7 @@ def get_states(
     mode: str = 'max',
     ablation_name: str = '',
     loader: Optional[Any] = None,
-    batch_size: Optional[int] = None,
+    batch_size: Optional[int] = 64,
     device: str = 'cuda',  # Make the device configurable
 ) -> Tuple[Dict[str, List[Any]], ...]:
     """

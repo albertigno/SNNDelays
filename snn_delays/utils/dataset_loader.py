@@ -86,7 +86,7 @@ class DatasetLoader:
                     dataset_name=dataset, total_time=total_time, **kwargs)
 
             elif dataset == 'davis':
-                from snn_delays.datasets.tonic_datasets import DAVIS240Dataset
+                from snn_delays.datasets.davis240c import DAVIS240Dataset
                 _dataset = DAVIS240Dataset(
                     dataset_name=dataset, total_time=total_time, **kwargs)
 

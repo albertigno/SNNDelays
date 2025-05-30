@@ -16,7 +16,7 @@ device = get_device()
 #dataset = 'SOX_01.npy'
 #dataset = 'xiao_hong_shu.npy'
 #dataset = 'C.npy'
-dataset = 'capo_50Hz.npy'
+dataset = 'davis_frames_X.npy'
 
 #dataset = os.path.join(DATASET_PATH, 'Capocaccia', 'randomcaccia.npy')
 
@@ -58,8 +58,10 @@ while True:
     # frame = im_step[0, 0, :, :].astype(np.float)/255.0
     # #frame = im_step[0, 0, :, :].astype(np.float)
 
-    frame = im_step
-    #frame = im_step[0, 0, :, :].astype(np.float)
+    #frame = im_step
+    frame = 255*im_step[0, 0, :, :].astype(np.uint8)
+
+    print(frame.shape)
 
     print(np.max(frame))
     print(np.min(frame))
