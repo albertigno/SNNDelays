@@ -4,25 +4,12 @@ import random
 import time
 
 # Parameters
-#symbols = ['@', '#', '&', '∞', '+']  # List of symbols
-#symbols = ['@', '#', '&', '+', '%']  # List of symbols
-#symbols = ['@', '#', '&', '+', '%']
-#symbols = ['I']
-
-#symbols = ['C', 'A', 'P', 'O', 'C', 'A', 'C', 'C', 'I', 'A']
 symbols = ['A']
-
-#symbols = ['P']
-
-frequency = 25  # Hz (symbols will change every 1 second)
-
-frequency = 35  # Hz (symbols will change every 1 second)
-
-
-
-duration_per_symbol = (1 / frequency)/2
-
+frequency = 25  # Hz
+duration_per_symbol = (1 / frequency)/2  # 20ms for symbol, 20ms for blank
 blank_duration = duration_per_symbol 
+
+num_rpts = 8
 
 font_scales = [5, 6, 7, 8]
 fonts = [
@@ -33,39 +20,31 @@ fonts = [
     cv2.FONT_HERSHEY_COMPLEX_SMALL
 ]
 
-# Display loop
-cv2.namedWindow("Symbols", cv2.WINDOW_NORMAL)
-#cv2.moveWindow("Symbols", 900, 270) # screen 1
-cv2.moveWindow("Symbols", 2250, 230) # screen 2
-cv2.moveWindow("Symbols", 900, 550) # screen 1
-# cv2.moveWindow("Symbols", 3150, 450) # screen 3
+total_symbols = 50
+frame_count = 0
 
+cv2.namedWindow("Symbols", cv2.WINDOW_NORMAL)
+cv2.moveWindow("Symbols", 900, 550) # screen 1
 cv2.resizeWindow("Symbols", 600, 600)
 
 blank_img = np.zeros((600, 600, 3), dtype=np.uint8)
 
-num_rpts = 8  # Number of repetitions for each symbol
-
-# count the time
-start_time = time.time()
-
-total_symbols = 50
+start_time = time.perf_counter()  # More precise timing
 
 while total_symbols > 0:
-    
-    # Randomly shuffle the symbols
-    #random.shuffle(symbols)
-    #time.sleep(0.01) # 10 ms so there is a small trancision between letters
     for symbol in symbols:
-        
         rpts = 0
-            
-        while rpts<num_rpts:
+        while rpts < num_rpts:
             total_symbols -= 1
             if total_symbols <= -1:
                 break
 
             rpts += 1
+            frame_count += 1
+            
+            # Measure frame start time
+            frame_start = time.perf_counter()
+            
             # pick font randomly
             font = np.random.choice(fonts)
             font_scale = np.random.choice(font_scales)
@@ -94,19 +73,41 @@ while total_symbols > 0:
 
             cv2.putText(img, symbol, (text_x, text_y), font, font_scale,
                         (255, 255, 255), thickness, cv2.LINE_AA)
+            
+            # Display symbol
             cv2.imshow("Symbols", img)
+            key = cv2.waitKey(1)  # Use minimal wait, we'll handle timing ourselves
+            
+            # Calculate remaining symbol time
+            elapsed = time.perf_counter() - frame_start
 
-            key = cv2.waitKey(int(duration_per_symbol * 1000))
-
+            remaining_symbol_time = max(0, duration_per_symbol - elapsed)
+            time.sleep(remaining_symbol_time)
+            
+            # Display blank
+            blank_start = time.perf_counter()
             cv2.imshow("Symbols", blank_img)
+            key = cv2.waitKey(1)
+            
+            # Calculate remaining blank time
+            elapsed_blank = time.perf_counter() - blank_start
+            remaining_blank_time = max(0, blank_duration - elapsed_blank)
+            time.sleep(remaining_blank_time)
+            
+            # [...] (keep your exit condition the same)
 
-            key = cv2.waitKey(int(blank_duration * 1000))
+end_time = time.perf_counter()
 
-            if key == 27:  # ESC to quit
-                cv2.destroyAllWindows()
-                exit()
-        
-end_time = time.time()
-# Calculate total time taken
+print(duration_per_symbol)
+print(elapsed)
+print(elapsed_blank)
+print(remaining_symbol_time)
+print(remaining_blank_time)
+
+
 total_time = end_time - start_time
-print(f"Total time taken: {total_time:.2f} seconds")
+actual_frequency = frame_count / total_time
+print(f"Total time taken: {total_time:.4f} seconds")
+print(f"Actual frequency: {actual_frequency:.2f} Hz")
+print(f"Target frequency: {frequency} Hz")
+print(f"Deviation: {(actual_frequency - frequency):.2f} Hz ({((actual_frequency - frequency)/frequency*100):.1f}%)")
