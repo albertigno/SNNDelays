@@ -59,6 +59,9 @@ class Training:
         if self.input2spike_th is not None:
             images = images > self.input2spike_th
 
+        if self.null_category == True:
+            labels = labels[:, :self.num_output]  # remove the null category
+        
         # handle incomplete last batch for reproducible tests
         labels = labels.to(self.device)
         self.incomplete_batch_len = 0
@@ -660,6 +663,7 @@ class SNN(Training, nn.Module):
         # training/propagate). Set this to None if you want to allow floating
         # inputs
         self.input2spike_th = None
+        self.null_category = False  # if the dataset has a null category, set it here
 
         # Set attributes for training metrics
         self.epoch = 0          # Number of epochs, initialized as 0
@@ -721,6 +725,9 @@ class SNN(Training, nn.Module):
         if layer_type == d, fanin delays are placed in the second-to-last layer. 
         e. g: (48, 2, 'd') --> i-48-d-48-o
         '''
+
+        if self.null_category == True:
+            self.num_output = self.num_output - 1
 
         num_in = self.num_input
         num_h = self.structure[0]

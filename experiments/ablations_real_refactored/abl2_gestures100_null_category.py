@@ -6,10 +6,6 @@ import torch
 import multiprocessing
 import itertools
 
-'''
-unfinished
-'''
-
 def get_configs(sweep_params, sweep_params_names):
     configurations = list(itertools.product(*sweep_params.values()))
     configurations_names = list(itertools.product(*sweep_params_names.values()))
@@ -83,7 +79,7 @@ sweep_params_names_rd = {
     'tau_m':['fx', 'st', 'lt'],
     }
 
-extra_kwargs_rd = {'delay_range':(5, 1),
+extra_kwargs_rd = {'delay_range':(80, 1),
                 'pruned_delays': 3}
 
 
@@ -112,6 +108,7 @@ def train_model(cfgs_arch, cfg_id, repetition):
 
 
     snn = SNN(**model_params)
+    snn.null_category = True  # Set null category for training
     snn.set_layers()
     snn.to(device)
     snn.model_name = cfg['name'] + '_rpt' + str(repetition)

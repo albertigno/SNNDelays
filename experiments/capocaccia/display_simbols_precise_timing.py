@@ -82,7 +82,7 @@ while total_symbols > 0:
             elapsed = time.perf_counter() - frame_start
 
             remaining_symbol_time = max(0, duration_per_symbol - elapsed)
-            time.sleep(remaining_symbol_time)
+            time.sleep(remaining_symbol_time*0.8)
             
             # Display blank
             blank_start = time.perf_counter()
@@ -92,7 +92,7 @@ while total_symbols > 0:
             # Calculate remaining blank time
             elapsed_blank = time.perf_counter() - blank_start
             remaining_blank_time = max(0, blank_duration - elapsed_blank)
-            time.sleep(remaining_blank_time)
+            time.sleep(remaining_blank_time*0.8)
             
             # [...] (keep your exit condition the same)
 

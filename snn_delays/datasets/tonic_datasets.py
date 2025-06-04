@@ -75,9 +75,14 @@ class TonicDataset:
 
         # center crop to 180 by 180 for the DAVIS
         if self.dataset_name == 'davis':
+            # list_sample_transform.append(
+            #     transforms.CenterCrop(sensor_size=original_sensor_size, size=(180, 180)))
+            # original_sensor_size = (180, 180, 2)
+
+            # for more compatibility with loihi snip
             list_sample_transform.append(
-                transforms.CenterCrop(sensor_size=original_sensor_size, size=(180, 180)))
-            original_sensor_size = (180, 180, 2)
+                transforms.CenterCrop(sensor_size=original_sensor_size, size=(128, 128)))
+            original_sensor_size = (128, 128, 2)
 
         # Sensor size and down-sampling factor
         sensor_size_list = list(original_sensor_size)
