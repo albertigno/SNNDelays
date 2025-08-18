@@ -50,7 +50,7 @@ class DatasetLoader:
 
         # Define available tonic datasets
         tonic_datasets = ['shd', 'shd_multicrop', 'ssc', 'nmnist','stmnist',
-                          'nmnist784', 'ibm_gestures', 'smnist', 'lipsfus', 'davis']
+                          'nmnist784', 'ibm_gestures', 'smnist', 'lipsfus', 'davis', 'davis_loihi']
 
         # Generate train and test datasets
         if dataset in tonic_datasets:
@@ -89,6 +89,12 @@ class DatasetLoader:
                 from snn_delays.datasets.davis240c import DAVIS240Dataset
                 _dataset = DAVIS240Dataset(
                     dataset_name=dataset, total_time=total_time, **kwargs)
+
+            elif dataset == 'davis_loihi':
+                from snn_delays.datasets.davis240c import DAVIS240Dataset
+                _dataset = DAVIS240Dataset(
+                    dataset_name=dataset, total_time=total_time, **kwargs)
+
 
             # Get dataset dictionary
             self.dataset_dict = _dataset.get_train_attributes()

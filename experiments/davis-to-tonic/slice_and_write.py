@@ -6,16 +6,27 @@ import dv_processing as dv
 import datetime
 import cv2 as cv
 import os
+import torch
+import tonic.transforms as transforms
+import numpy as np
 
 # basic configuration
 ## folder
-location = 'O'
+folder_name = 'O_test'
+location = os.path.join(r"E:\SNN_DATASETS\Datasets", folder_name)
 if not os.path.exists(location):
     os.makedirs(location)
-
 file_name = 'sample'
-time_ms = 250
-num_samples = 720
+
+# # ABCXO configuration
+# time_ms = 250
+# num_samples = 720 # 3 minutes (600 train, 120 test)
+
+time_ms = 50
+#num_samples = 2000 # 100 secs train
+num_samples = 1000 # 50 secs test
+
+tonic_size = 32
 
 # Open the camera
 camera = dv.io.CameraCapture("DAVIS240C_02460013")
@@ -32,12 +43,64 @@ x=0
 # Event only configuration for the writer
 config = dv.io.MonoCameraWriter.EventOnlyConfig("DAVIS240C_02460013", resolution)
 
+# tonic preview
+tonic_dtype = np.dtype([("x", np.int16), ("y", np.int16), ("p", bool), ("t", np.int64)])
+
+sensor_size = (240, 180, 2)
+transforms_list = []
+
+transforms_list.append(
+    transforms.CenterCrop(sensor_size=sensor_size, size=(128, 128)))
+cropped_sensor_size = (128, 128, 2)
+
+target_size = (tonic_size, tonic_size)
+spatial_factor = \
+    np.asarray(target_size) / cropped_sensor_size[:-1]
+
+transforms_list.append(
+    transforms.Downsample(spatial_factor=spatial_factor[0]))
+
+transforms_list.append(
+    transforms.ToFrame(
+        sensor_size=(tonic_size, tonic_size, 2), n_time_bins=1))
+
+to_frame = transforms.Compose(transforms_list)
+
 # Create the preview window
 cv.namedWindow("Preview", cv.WINDOW_NORMAL)
+cv.resizeWindow("Preview", 500, 500)
 
-def preview_events(event_slice):
-    cv.imshow("Preview", visualizer.generateImage(event_slice))
-    cv.waitKey(2)
+def preview_events(events: dv.EventStore):
+    if len(events) > 0:
+
+        events_packets = events.numpy()
+
+        # Extract fields and convert
+        x = events_packets['x']
+        y = events_packets['y']
+        p = events_packets['polarity'].astype(bool)  # Convert to bool
+        t = events_packets['timestamp']
+
+        tonic_events = np.empty(len(events_packets), dtype=tonic_dtype)
+        tonic_events["x"] = x
+        tonic_events["y"] = y
+        tonic_events["p"] = p
+        tonic_events["t"] = t
+
+        frame = to_frame(tonic_events)
+
+        if len(frame.shape)!=4:
+            frame = np.zeros((1, 2, tonic_size, tonic_size)).astype(np.int16)
+
+        print(np.max(frame))
+
+        composed_frame = 255*frame[0, 1, :, :] - 255*frame[0, 0, :, :]
+        max = np.max(np.abs(composed_frame))
+
+        composed_frame = (1.0 + composed_frame / max) / 2.0
+
+        cv.imshow("Preview", composed_frame)
+        cv.waitKey(2)
 
 def write_events(event_slice):
     global x

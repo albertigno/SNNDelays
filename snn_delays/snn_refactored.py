@@ -8,7 +8,9 @@ import sys
 import json
 import numpy as np
 from collections import deque
-
+from snn_delays.layers import (Conv2DSNNLayer, Conv3DSNNLayer, FlattenSNNLayer,
+                               FeedforwardSNNLayer, RecurrentSNNLayer,
+                               MultiFeedforwardSNNLayer, DelayedSNNLayer)
 
 '''
 I'll try to make the models more Pytorch-like.
@@ -22,22 +24,6 @@ added random delays
 to add: save, load, spike counts, gradients checkpoints, amp
 to try: 
 '''
-
-### AI-condensed
-class ActFunFastSigmoid(torch.autograd.Function):
-    @staticmethod
-    def forward(ctx, input_data):
-        ctx.save_for_backward(input_data)
-        # Return a binary spike: 1 if input_data > 0, else 0
-        return (input_data > 0).float()
-    
-    @staticmethod
-    def backward(ctx, grad_output):
-        input_data, = ctx.saved_tensors
-        grad_input = grad_output.clone()
-        # Surrogate gradient: normalized negative part of a fast sigmoid
-        grad = grad_input / (10.0 * torch.abs(input_data) + 1.0) ** 2
-        return grad, None
 
 class Training:
     """
@@ -76,16 +62,23 @@ class Training:
             padding_im = torch.zeros((self.batch_size - len(images),) + images.shape[1:]).to(self.device)
             images = torch.cat([images, padding_im], dim=0)
 
-        ### zero-padding the inputs along the temporal dimension
-        if self.time_win<self.win:
-            zero_t = torch.zeros(self.batch_size, self.win-self.time_win, images.size(2)*images.size(3), dtype=images.dtype, device=self.device)
-            images = torch.cat([images.view(self.batch_size, self.time_win, -1), zero_t], dim=1).float().to(self.device)
+        ### TODO: handle different time propagations to that of the trained models
+        # ### zero-padding the inputs along the temporal dimension
+        # if self.time_win<self.win:
+        #     zero_t = torch.zeros(self.batch_size, self.win-self.time_win, images.size(2)*images.size(3), dtype=images.dtype, device=self.device)
+        #     images = torch.cat([images.view(self.batch_size, self.time_win, -1), zero_t], dim=1).float().to(self.device)
 
-        elif self.time_win == self.win:
-            images = images.view(self.batch_size, self.win, -1).float().to(self.device)          
+        # elif self.time_win == self.win:
+        #     # old implementaton (no conv, flattening the inputs)
+        #     #images = images.view(self.batch_size, self.win, -1).float().to(self.device)      
+                
+        #     images = images.float().to(self.device)
 
-        else:
-            raise Exception("propagation time below data timesteps not implemented yet!")
+        # else:
+        #     raise Exception("propagation time below data timesteps not implemented yet!")
+
+
+        images = images.float().to(self.device)
 
         # Squeeze to eliminate dimensions of size 1    
         if len(images.shape)>3 and self.batch_size>1:    
@@ -96,9 +89,11 @@ class Training:
         else:
             labels = labels.float().to(self.device)
             
-        l_f = self.loss_fn
-
+        ### propagation
         all_o_mems, all_o_spikes = self(images)
+
+        ### loss function implementation
+        l_f = self.loss_fn
 
         if l_f == 'mem_last':
             _, labels = torch.max(labels.data, 1)
@@ -135,11 +130,14 @@ class Training:
         return outputs, labels
     
 
-    def propagate_live(self, images):
+    def propagate_live(self, images, spk_count_size = None):
         '''
         this is to propagate and test streaming data.
         there is no need to pass labels.
         '''
+
+        if spk_count_size is None:
+            spk_count_size = self.win
 
         with torch.no_grad():
 
@@ -186,6 +184,7 @@ class Training:
                 self.batch_size, self.num_output, device=self.device)
 #                _, labels = torch.max(labels.data, 1)
                 for o_mem in self.mems_fifo['output']:
+
                     outputs = outputs + F.softmax(o_mem, dim=1)
 
             elif l_f == 'mem_mot':
@@ -197,7 +196,7 @@ class Training:
             elif l_f == 'spk_count':
                 outputs = torch.zeros(
                 self.batch_size, self.num_output, device=self.device)
-                for o_spk in self.spikes_fifo['output']:
+                for o_spk in list(self.spikes_fifo['output'])[-spk_count_size:]:
                     outputs = outputs + o_spk
                 # outputs = outputs/self.win   #normalized         
                 # outputs = torch.sum(outputs, dim = 1)/self.win
@@ -377,9 +376,9 @@ class Training:
 
             # # Propagate data
             with torch.no_grad():
-                self.eval()
+                #self.eval()
                 outputs, reference = self.propagate(images, labels)
-                self.train()
+                #self.train()
 
             # crop results to the labels size (for incomplete batch)
             if type(outputs) == list:
@@ -399,6 +398,7 @@ class Training:
                 _, predicted = torch.max(outputs[0].data, 1)
             else:
                 _, predicted = torch.max(outputs.data, 1)
+                
             _, reference = torch.max(labels.data, 1)
 
             all_preds = all_preds + list(predicted.cpu().numpy())
@@ -450,176 +450,6 @@ class Training:
         return all_refs, all_preds
 
 
-class AbstractSNNLayer(nn.Module):
-
-    act_fun = ActFunFastSigmoid.apply
-
-    @staticmethod
-    def alpha_sigmoid(tau):
-        return torch.sigmoid(tau)
-
-    def activation_function(self, mem, thresh):
-
-        '''
-        The activation function is defined here
-        '''
-
-        th_reset = thresh # reset membrane when it reaches thresh
-
-        o_spike = self.act_fun(mem-thresh)
-        mem = mem * (mem < th_reset)
-
-        return mem, o_spike
-    
-    def forward(self, prev_spikes, own_mems, own_spikes):
-        '''
-        returns the mem and spike state
-        '''
-
-        # propagate previous spikes (wheter on simple or extended form)
-        # update_mem(spikes_from_previous_layer, own_spikes, own_mems, threshols)
-        mems, spikes = self.update_mem(
-            prev_spikes.reshape(self.batch_size, -1), own_spikes, own_mems, self.thresh)
-
-        return mems, spikes
-    
-    def update_mem(self, i_spike, o_spike, mem, thresh):
-        """Child classes must implement this."""
-        pass
-
-class DelayedSNNLayer(AbstractSNNLayer):
-    """
-    Base class to handle fan-in delays and the multi-projections for SNN layers.
-    This allows sharing delay logic across Feedforward and Recurrent layers.
-    num_pruned delays: if 
-    """
-    def __init__(self, num_in, num_out, fanin_delays=None, pruned_delays=None):
-        super().__init__()
-
-        self.num_in = num_in
-        self.num_out = num_out
-
-        self.pre_delays = fanin_delays is not None
-        
-        self.pruned_delays = pruned_delays
-
-        if self.pre_delays:
-            self.delays = fanin_delays
-            self.max_d = max(fanin_delays) + 1
-            self.linear = nn.Linear(num_in * len(fanin_delays), num_out, bias=False)
-            if pruned_delays is not None:
-                mask = torch.rand(num_out, num_in * len(fanin_delays)) < (pruned_delays / len(self.delays))
-                self.register_buffer('pruning_mask', mask)
-                # Apply the mask to the weights after initialization
-                with torch.no_grad():
-                    self.linear.weight *= self.pruning_mask
-        else:
-            self.linear = nn.Linear(num_in, num_out, bias=False)
-
-class MultiFeedforwardSNNLayer(AbstractSNNLayer):
-
-    '''
-    advances a single timestep of a multi-feedforward layer, with or without delays
-    '''
-
-    def __init__(self, num_in, num_out, tau_m, batch_size, inf_th=False, device=None, fanin_multifeedforward=None):
-        super().__init__()
-
-        self.num_in = num_in
-        self.num_out = num_out
-        self.pre_delays = False
-
-        self.multif= fanin_multifeedforward
-        self.linear = nn.Linear(num_in * fanin_multifeedforward, num_out, bias=False)
-
-        self.tau_m = tau_m
-        self.batch_size = batch_size
-        self.device = device
-        self.thresh = float('inf') if inf_th else 0.3
-        self.multi_proj = fanin_multifeedforward
-
-    def update_mem(self, i_spike, o_spike, mem, thresh):
-
-        # Set alpha value to membrane potential decay
-        alpha = self.alpha_sigmoid(self.tau_m).to(self.device)
-
-        # Calculate the new membrane potential and output spike
-        mem = mem * alpha * (1 - o_spike) + self.linear(i_spike.repeat(1, self.multif))
-
-        return self.activation_function(mem, thresh)
-
-
-class FeedforwardSNNLayer(DelayedSNNLayer):
-
-    '''
-    advances a single timestep of a feedforward layer, with or without delays
-    '''
-
-    def __init__(self, num_in, num_out, tau_m, batch_size, inf_th=False, device=None, fanin_delays=None, 
-                 pruned_delays=None):
-        super().__init__(num_in, num_out, fanin_delays, pruned_delays)
-        self.tau_m = tau_m
-        self.batch_size = batch_size
-        self.device = device
-        self.thresh = float('inf') if inf_th else 0.3
-
-        if self.pre_delays:
-            ### as the mask is adding zeros, the non-zero weights are multiplied by a factor
-            with torch.no_grad():
-                scale_factor = torch.sqrt(self.max_d / self.pruned_delays).item()
-                self.linear.weight *= scale_factor
-
-
-    def update_mem(self, i_spike, o_spike, mem, thresh):
-
-        # Set alpha value to membrane potential decay
-        alpha = self.alpha_sigmoid(self.tau_m).to(self.device)
-
-        # Calculate the new membrane potential and output spike
-        mem = mem * alpha * (1 - o_spike) + self.linear(i_spike)
-
-        return self.activation_function(mem, thresh)
-
-
-class RecurrentSNNLayer(DelayedSNNLayer):
-
-    '''
-    advances a single timestep of a recurrent layer, with or without delays
-    implemented delays only in the fanin connections, not in the recurrent ones.
-    '''
-
-    def __init__(self, num_in, num_out, tau_m, batch_size, inf_th=False, device=None, fanin_delays=None, 
-                 pruned_delays=None):
-        super().__init__(num_in, num_out, fanin_delays, pruned_delays)
-        self.linear_rec = nn.Linear(num_out, num_out, bias=False)
-        self.tau_m = tau_m
-        self.batch_size = batch_size
-        self.device = device
-        self.thresh = float('inf') if inf_th else 0.3
-
-        with torch.no_grad():
-
-            mx = torch.sqrt(torch.tensor(num_in+num_out))
-            ln_mx = torch.sqrt(torch.tensor(num_in))
-            rc_mx = torch.sqrt(torch.tensor(num_out))
-
-            self.linear.weight *= (ln_mx/mx).item()
-            self.linear_rec.weight *= (rc_mx/mx).item()
-
-
-    def update_mem(self, i_spike, o_spike, mem, thresh):
-
-        # Set alpha value to membrane potential decay
-        alpha = self.alpha_sigmoid(self.tau_m).to(self.device)
-
-        # Calculate the new membrane potential and output spike
-        a = self.linear(i_spike)  # From input spikes
-        b = self.linear_rec(o_spike)    # From recurrent spikes
-        c = mem * alpha * (1-o_spike)   # From membrane potential decay
-        mem = a + b + c
-
-        return self.activation_function(mem, thresh)
-
 class SNN(Training, nn.Module):
     """
     Spiking neural network (SNN) class.
@@ -628,7 +458,7 @@ class SNN(Training, nn.Module):
     without delays. It inherits from nn.Module.
     """
 
-    def __init__(self, dataset_dict, structure = (64, 2, 'f'), tau_m='normal', win=50,
+    def __init__(self, dataset_dict, model_config, tau_m='normal', win=50,
                  loss_fn='mem_sum', batch_size=256, device='cuda', **extra_kwargs):
         
         '''
@@ -643,7 +473,7 @@ class SNN(Training, nn.Module):
 
         # Set attributes from inputs
         self.dataset_dict = dataset_dict
-        self.structure = structure
+        self.model_config = model_config
         self.tau_m = tau_m
         self.win = win
         self.loss_fn = loss_fn
@@ -693,7 +523,11 @@ class SNN(Training, nn.Module):
         # Set features of the network
         self.num_train_samples = self.dataset_dict['num_training_samples']
         self.num_input = self.dataset_dict['num_input']
+        self.num_input_channels = self.dataset_dict.get('num_input_channels', 1)  # Default to 1 if not specified
         self.num_output = self.dataset_dict['num_output']
+
+        # initialize layer list
+        self.layers = nn.ModuleList()
 
         # # simulation time-step
         # self.step = -1
@@ -703,6 +537,14 @@ class SNN(Training, nn.Module):
         self.model_name = ''
         self.last_model_name = None
         self.last_max_model_name = None
+
+        # get delta_t
+        time_ms = self.dataset_dict.get('time_ms', 0)
+        if time_ms != 0:
+            self.delta_t = time_ms/self.win
+            print(f"Delta t: {self.delta_t} ms")
+        else:
+            raise Exception("Please define time_ms in dataset_dic.")
 
         # set loss function
         if self.loss_fn == 'spk_count':
@@ -720,85 +562,189 @@ class SNN(Training, nn.Module):
 
     def set_layers(self):
 
-        '''
-        quick option: a tuple of (num_hidden, num_layers, layer_type)
-        if layer_type == d, fanin delays are placed in the second-to-last layer. 
-        e. g: (48, 2, 'd') --> i-48-d-48-o
-        '''
+        logit = lambda x: np.log(x/(1-x))
+        conv_tau_m = 5.0 # Default tau_m for Conv2D layers, can be adjusted (ms)
 
-        if self.null_category == True:
-            self.num_output = self.num_output - 1
+        current_in_channels = self.num_input_channels
+        if current_in_channels == 1:
+            current_in_height = self.num_input
+            current_in_width = 1
+        elif current_in_channels == 2: # assume 2D square input
+            current_in_height = int((self.num_input // 2) ** 0.5)
+            current_in_width = current_in_height
 
-        num_in = self.num_input
-        num_h = self.structure[0]
-        num_o = self.num_output 
+        for i, config in enumerate(self.model_config):
+            layer_type = config['type']
+            layer_kwargs = {} # Collect kwargs for the current layer
 
-        num_hidden_layers = self.structure[1]
-        layer_type = self.structure[2]
+            # Common SNN layer arguments
+            layer_kwargs['batch_size'] = self.batch_size
+            layer_kwargs['device'] = self.device
 
-        self.layers = nn.ModuleList()
+            if layer_type == 'Conv2D':
+                # Conv2DSNNLayer specific arguments
+                layer_kwargs['in_channels'] = current_in_channels
+                layer_kwargs['out_channels'] = config['out_channels']
+                layer_kwargs['kernel_size'] = config['kernel_size']
+                layer_kwargs['stride'] = config.get('stride', config['kernel_size'])  # Default to kernel_size if not specified
+                layer_kwargs['tau_m'] = torch.tensor(logit(np.exp(-self.delta_t/conv_tau_m)), device=self.device)
+                layer_kwargs['avg_pooling'] = config.get('avg_pooling', False)  # Default to False if not specified
 
-        # input layer:
+                layer_instance = Conv2DSNNLayer(**layer_kwargs)
+                self.layers.append(layer_instance)
 
-        kwargs = {'num_in': num_in, 
-                  'num_out': num_h,  
-                  'batch_size': self.batch_size, 
-                  'device': self.device}
-        
-        if self.extra_kwargs != {}:
-            kwargs_extra = kwargs.copy()
+                # Update dimensions for the next layer
+                current_in_channels = layer_kwargs['out_channels']
 
-            if 'delay_range' in self.extra_kwargs.keys():
-                stride = self.extra_kwargs["delay_range"][1]     
-                rng = self.extra_kwargs["delay_range"][0]  
-                kwargs_extra["fanin_delays"] = torch.tensor(range(0, rng, stride))
+                kernel_h = layer_kwargs['kernel_size']
+                kernel_w = layer_kwargs['kernel_size']
+                stride_h = layer_kwargs['stride']
+                stride_w = layer_kwargs['stride']
 
-                if 'pruned_delays' in self.extra_kwargs.keys(): 
-                    kwargs_extra['pruned_delays'] = self.extra_kwargs['pruned_delays']
+                current_in_height = int(np.floor(
+                    (current_in_height - kernel_h) / stride_h + 1
+                ))
+                current_in_width = int(np.floor(
+                    (current_in_width - kernel_w) / stride_w + 1
+                ))
 
-            elif 'multifeedforward' in self.extra_kwargs.keys():
-                kwargs_extra['fanin_multifeedforward'] = self.extra_kwargs['multifeedforward']
-            
-        
-        ## input and hidden layers
-        for h_layer in range(num_hidden_layers):
-            
-            if h_layer>0:
-                kwargs['num_in'] = num_h
-                if self.extra_kwargs != {}:
-                    kwargs_extra['num_in'] = num_h
+                if layer_kwargs['avg_pooling']:
+                    current_in_height = current_in_height // 2  # Assuming avg pooling halves the height
+                    current_in_width = current_in_width // 2
 
-            kwargs['tau_m'] = self.get_tau_m(num_h)
-            if self.extra_kwargs != {}:
-                kwargs_extra['tau_m'] = self.get_tau_m(num_h)
+                # current_in_height = current_in_height // layer_kwargs['kernel_size'] # Assuming stride=kernel_size
+                # current_in_width = current_in_width // layer_kwargs['kernel_size'] # Assuming stride=kernel_size
 
-            if layer_type == 'r':
-                self.layers.append(RecurrentSNNLayer(**kwargs))
-            elif layer_type == 'f':
-                self.layers.append(FeedforwardSNNLayer(**kwargs))
+                # update output shape information (useful for self.init_state())
+                self.layers[-1].output_shape = (current_in_channels, current_in_height, current_in_width)
 
-            elif layer_type =='d':
-                if h_layer<num_hidden_layers-1:
-                    self.layers.append(FeedforwardSNNLayer(**kwargs))
-                else:
-                    self.layers.append(FeedforwardSNNLayer(**kwargs_extra))
+            elif layer_type == 'Conv3D':
+                # Conv3DSNNLayer specific arguments
+                layer_kwargs['in_channels'] = current_in_channels
+                layer_kwargs['out_channels'] = config['out_channels']
+                layer_kwargs['kernel_size'] = config['kernel_size']
+                layer_kwargs['temporal_kernel_size'] = config.get('fanin_delays', 1)
+                layer_kwargs['avg_pooling'] = config.get('avg_pooling', False)  # Default to False if not specified
 
-            elif layer_type =='mf':
-                if h_layer<num_hidden_layers-1:
-                    self.layers.append(FeedforwardSNNLayer(**kwargs))
-                else:
-                    self.layers.append(MultiFeedforwardSNNLayer(**kwargs_extra))
-        
-        ## output layer is always feedforward
-        kwargs['num_in'] = num_h
-        kwargs['num_out'] = num_o
-        kwargs['inf_th'] = self.nonfiring_output
-        kwargs['tau_m'] = self.get_tau_m(num_o)
-        self.layers.append(FeedforwardSNNLayer(**kwargs))
+                layer_kwargs['tau_m'] = torch.tensor(logit(np.exp(-self.delta_t/conv_tau_m)), device=self.device)
 
+                layer_instance = Conv3DSNNLayer(**layer_kwargs)
+                self.layers.append(layer_instance)
+
+                # Update dimensions for the next layer
+                current_in_channels = layer_kwargs['out_channels']
+                current_in_height = current_in_height // layer_kwargs['kernel_size'] # Assuming stride=kernel_size
+                current_in_width = current_in_width // layer_kwargs['kernel_size'] # Assuming stride=kernel_size
+
+                if layer_kwargs['avg_pooling']:
+                    current_in_height = current_in_height // 2  # Assuming avg pooling halves the height
+                    current_in_width = current_in_width // 2
+
+                # update output shape information (useful for self.init_state())
+                self.layers[-1].output_shape = (current_in_channels, current_in_height, current_in_width)
+
+            elif layer_type == 'Flatten':
+                layer_instance = FlattenSNNLayer(batch_size=self.batch_size)
+                self.layers.append(layer_instance)
+                
+                # Update dimensions for the next layer (flattened size)
+                current_in_channels = current_in_channels * current_in_height * current_in_width
+                # current_in_height = 1 # No spatial dimensions after flatten
+                # current_in_width = 1 # No spatial dimensions after flatten
+
+                # update output shape information (useful for self.init_state())
+                self.layers[-1].output_shape = (current_in_channels,)
+
+            elif layer_type == 'Feedforward':
+                # num_in is the current_in_channels (from previous layer's output)
+                layer_kwargs['num_in'] = current_in_channels
+                layer_kwargs['num_out'] = config['num_out']
+                layer_kwargs['tau_m'] = self.get_tau_m(config['num_out'])
+
+                # Specific kwargs for DelayedSNNLayer (if Feedforward is a DelayedSNNLayer)
+                if 'fanin_delays' in config:
+                    max_delay = config['fanin_delays']['max_delay']
+                    stride = config['fanin_delays']['stride']
+                    pruned_delays= config['fanin_delays'].get('pruning', None)
+                    layer_kwargs['fanin_delays'] = torch.tensor(range(0, max_delay, stride))
+                    if pruned_delays is not None:
+                        layer_kwargs['pruned_delays'] = pruned_delays
+
+                layer_instance = FeedforwardSNNLayer(**layer_kwargs)
+                self.layers.append(layer_instance)
+                
+                # Update dimensions for the next layer
+                current_in_channels = layer_kwargs['num_out']
+
+                # update output shape information (useful for self.init_state())
+                self.layers[-1].output_shape = (current_in_channels,)
+
+            elif layer_type == 'Recurrent':
+                # num_in is the current_in_channels
+                layer_kwargs['num_in'] = current_in_channels
+                layer_kwargs['num_out'] = config['num_out']
+                layer_kwargs['tau_m'] = self.get_tau_m(config['num_out'])
+
+                # Specific kwargs for DelayedSNNLayer if Recurrent inherits from it
+                if 'fanin_delays' in config:
+                    max_delay = config['fanin_delays']['max_delay']
+                    stride = config['fanin_delays']['stride']
+                    pruned_delays= config['fanin_delays'].get('pruning', None)
+                    layer_kwargs['fanin_delays'] = torch.tensor(range(0, max_delay, stride))
+                    if pruned_delays is not None:
+                        layer_kwargs['pruned_delays'] = pruned_delays
+
+                layer_instance = RecurrentSNNLayer(**layer_kwargs)
+                self.layers.append(layer_instance)
+                
+                # Update dimensions for the next layer
+                current_in_channels = layer_kwargs['num_out']
+
+                # update output shape information (useful for self.init_state())
+                self.layers[-1].output_shape = (current_in_channels,)
+
+            elif layer_type == 'MultiFeedforward':
+                # num_in is the current_in_channels
+                layer_kwargs['num_in'] = current_in_channels
+                layer_kwargs['num_out'] = config['num_out']
+                layer_kwargs['tau_m'] = self.get_tau_m(config['num_out'])
+                layer_kwargs['num_fanin_multifeedforward'] = config['num_fanin_multifeedforward'] # Assuming this key is used
+
+                layer_instance = MultiFeedforwardSNNLayer(**layer_kwargs)
+                self.layers.append(layer_instance)
+                
+                # Update dimensions for the next layer
+                current_in_channels = layer_kwargs['num_out']
+
+                # update output shape information (useful for self.init_state())
+                self.layers[-1].output_shape = (current_in_channels,)
+
+        # Special handling for the last layer: num_out should be self.num_output_classes
+        layer_kwargs = {} # Collect kwargs for the current layer
+        layer_kwargs['batch_size'] = self.batch_size
+        layer_kwargs['device'] = self.device
+        layer_kwargs['num_in'] = current_in_channels
+        layer_kwargs['num_out'] = self.num_output
+        layer_kwargs['tau_m'] = self.get_tau_m(self.num_output)
+        layer_kwargs['inf_th'] = self.nonfiring_output
+        #layer_kwargs['apply_bn'] = False  # No batch normalization on the output layer
+        layer_instance = FeedforwardSNNLayer(**layer_kwargs)
+        self.layers.append(layer_instance)
+
+        # update output shape information (useful for self.init_state())
+        self.layers[-1].output_shape = (self.num_output,)
+
+        # if self.debug:
+        #     self.init_state_logger()
+
+
+    def set_live_mode(self, inference_window=None):
 
         # set fifos for the live mode
         if self.live:
+
+            if inference_window is None:
+                inference_window = self.win
 
             self.mems_fifo = dict()
             self.spikes_fifo = dict()
@@ -808,12 +754,10 @@ class SNN(Training, nn.Module):
                     name = 'output'
                 else:
                     name = 'l' + str(i+1)
-                self.mems_fifo[name] = deque(maxlen=self.win)
-                self.spikes_fifo[name] = deque(maxlen=self.win)
+                self.mems_fifo[name] = deque(maxlen=inference_window)
+                self.spikes_fifo[name] = deque(maxlen=inference_window)
 
             self.reset_state_live()
-
-        self.init_state_logger()
 
 
     def init_state(self):
@@ -831,27 +775,68 @@ class SNN(Training, nn.Module):
         spikes = dict()
         queued_spikes = dict()
 
+        ### state logger
+        if self.debug:
+            
+            setattr(self, 'mem_state', dict())
+            setattr(self, 'spike_state', dict())    
+
+            in_channels = self.num_input_channels
+            if in_channels == 1:
+                self.spike_state['input'] = torch.zeros(
+                    self.win, self.batch_size,
+                    self.num_input, device=self.device)
+            elif in_channels == 2: # assume 2D square input
+                in_height = int((self.num_input // 2) ** 0.5)
+                in_width = in_height
+                self.spike_state['input'] = torch.zeros(
+                    self.win, self.batch_size,
+                    in_channels, in_width, in_height, device=self.device)
+
         for i, layer in enumerate(self.layers):
+
+            output_shape = layer.output_shape  # Get the output shape from the layer's attribute
             
-            num_neurons = layer.num_out
-            num_in = layer.num_in
-            
+            # Determine the name for the state dictionary (improve this later)
             if i == len(self.layers)-1:
                 name = 'output'
             else:
-                name = 'l' + str(i+1)
+                name = 'l' + str(i)
 
+            # Initialize mems and spikes with the determined output_shape
             mems[name] = torch.zeros(
-                self.batch_size, num_neurons, device=self.device)
+                self.batch_size, *output_shape, device=self.device)
             spikes[name] = torch.zeros(
-                self.batch_size, num_neurons, device=self.device)
+                self.batch_size, *output_shape, device=self.device)
             
-            if layer.pre_delays:
+            if self.debug:
+                self.mem_state[name] = torch.zeros(
+                self.win, self.batch_size, *output_shape, device=self.device)
+                self.spike_state[name] = torch.zeros(
+                self.win, self.batch_size, *output_shape, device=self.device)            
+                
+            if isinstance(layer, DelayedSNNLayer) and layer.pre_delays:
                 max_d = layer.max_d
                 queued_spikes[name] = torch.zeros(
-                    self.batch_size,  max_d+1, num_in, device=self.device)
+                    self.batch_size,  max_d+1, layer.num_in, device=self.device)
+                
+            elif isinstance(layer, Conv3DSNNLayer):
+
+                # get previous layer's output shape (fanin activations)
+                if i > 0:
+                    prev_layer = self.layers[i-1]
+                    input_shape = prev_layer.output_shape
+                else:
+                    H = int((self.num_input // 2) ** 0.5)
+                    W = H
+                    input_shape = (self.num_input_channels, H, W)
+
+                max_d = layer.temporal_kernel_size
+                queued_spikes[name] = torch.zeros(
+                    self.batch_size,  max_d, *input_shape, device=self.device)                
 
         return mems, spikes, queued_spikes
+    
 
     def reset_state_live(self):
         '''
@@ -870,7 +855,7 @@ class SNN(Training, nn.Module):
             if i == len(self.layers)-1:
                 name = 'output'
             else:
-                name = 'l' + str(i+1)
+                name = 'l' + str(i)
 
             self.mems[name] = torch.zeros(
                 self.batch_size, num_neurons, device=self.device)
@@ -883,37 +868,36 @@ class SNN(Training, nn.Module):
                     self.batch_size,  max_d+1, num_in, device=self.device)
 
 
+    # def init_state_logger(self):
 
-    def init_state_logger(self):
+    #     # Initialization of the dictionary to log the state of the
+    #     # network if debug is activated
 
-        # Initialization of the dictionary to log the state of the
-        # network if debug is activated
+    #     with torch.no_grad():
 
-        with torch.no_grad():
+    #         setattr(self, 'mem_state', dict())
+    #         setattr(self, 'spike_state', dict())        
 
-            setattr(self, 'mem_state', dict())
-            setattr(self, 'spike_state', dict())        
-
-            if self.debug:
-                self.spike_state['input'] = torch.zeros(
-                    self.win, self.batch_size,
-                    self.num_input, device=self.device)
+    #         if self.debug:
+    #             self.spike_state['input'] = torch.zeros(
+    #                 self.win, self.batch_size,
+    #                 self.num_input, device=self.device)
                 
-            for i, layer in enumerate(self.layers):
+    #         for i, layer in enumerate(self.layers):
 
-                num_neurons = layer.num_out
+    #             num_neurons = layer.num_out
 
-                if i == len(self.layers)-1:
-                    name = 'output'
-                else:
-                    name = 'l' + str(i+1)
+    #             if i == len(self.layers)-1:
+    #                 name = 'output'
+    #             else:
+    #                 name = 'l' + str(i)
 
-                self.mem_state[name] = torch.zeros(
-                    self.win, self.batch_size,
-                    num_neurons, device=self.device)
-                self.spike_state[name] = torch.zeros(
-                    self.win, self.batch_size,
-                    num_neurons, device=self.device)
+    #             self.mem_state[name] = torch.zeros(
+    #                 self.win, self.batch_size,
+    #                 num_neurons, device=self.device)
+    #             self.spike_state[name] = torch.zeros(
+    #                 self.win, self.batch_size,
+    #                 num_neurons, device=self.device)
 
 
     def update_logger(self, *args):
@@ -926,44 +910,34 @@ class SNN(Training, nn.Module):
         This function takes as arguments the parameters of the network to log.
         """
 
-        # Create the dictionary for logging
         if self.debug:
             inpt, mems, spikes, step = args
 
-            self.spike_state['input'][step, :, :] = inpt.detach().clone()
+            self.spike_state['input'][step, ...] = inpt.detach().clone()
 
             for i in range(len(self.layers)):
 
                 if i == len(self.layers)-1:
                     name = 'output'
                 else:
-                    name = 'l' + str(i+1)
+                    name = 'l' + str(i)
 
-                self.mem_state[name][step, :, :] = mems[name].detach().clone()
-                self.spike_state[name][step, :, :] = spikes[name].detach().clone()
+                self.mem_state[name][step, ...] = mems[name].detach().clone()
+                self.spike_state[name][step, ...] = spikes[name].detach().clone()
 
     def get_tau_m(self, num_neurons):
 
         logit = lambda x: np.log(x/(1-x))
 
         mean_tau = self.mean_tau # mean tau 20ms (Perez-Nieves)
-        time_ms = self.dataset_dict.get('time_ms', 0)
-        #print(time_ms)
-
-        if time_ms != 0:
-            delta_t = time_ms/self.win
-            print(f"Delta t: {delta_t} ms")
-        else:
-            if self.tau_m == 'normal':
-                raise Exception("Please define time_ms in dataset_dic.")
 
         if type(self.tau_m) == float:
-            x = logit(np.exp(-delta_t/self.tau_m))
+            x = logit(np.exp(-self.delta_t/self.tau_m))
             return nn.Parameter(x*torch.ones(num_neurons))
 
         elif self.tau_m == 'normal': 
             #log-normal in reality, the name is kept for compatibility
-            mean = logit(np.exp(-delta_t/mean_tau))
+            mean = logit(np.exp(-self.delta_t/mean_tau))
             #print(f"mean of normal: {mean}")
             std = 1.0
             return nn.Parameter(
@@ -1004,10 +978,10 @@ class SNN(Training, nn.Module):
         for tensors of dimensions (batch_size, num_timesteps, num_neurons)
         '''
         # nice way
-        tensor = torch.cat((tensor[:, -1:, :], tensor[:, :-1, :]), dim=1) # shif to the right
-        # tensor = torch.roll(tensor, shifts=1, dims=1)  # Shift right by 1 (AI suggested, need to benchmark)
+        # tensor = torch.cat((tensor[:, -1:, :], tensor[:, :-1, :]), dim=1) # shif to the right (Alberto)
+        tensor = torch.roll(tensor, shifts=1, dims=1)  # Shift right by 1 (AI suggested, need to benchmark)
 
-        tensor[:, 0, :] = data
+        tensor[:, 0, ...] = data
 
         return tensor
 
@@ -1022,14 +996,18 @@ class SNN(Training, nn.Module):
         
         for step in range(self.num_simulation_steps):
 
-            prev_spikes = input[:, step, :].view(self.batch_size, -1)
+            #prev_spikes = input[:, step, :].view(self.batch_size, -1)
+            prev_spikes = input[:, step, :]
 
             for layer, key in zip(self.layers, spikes.keys()):
 
                 if layer.pre_delays:
                     queued_spikes[key] = self.update_queue(queued_spikes[key], prev_spikes)
                     #prev_spikes = queued_spikes[key][:, layer.delays, :].transpose(1, 2).clone().detach() # is transpose necessary?
-                    prev_spikes = queued_spikes[key][:, layer.delays, :].transpose(1, 2)
+                    if isinstance(layer, Conv3DSNNLayer):
+                        prev_spikes = queued_spikes[key].transpose(1, 2)
+                    else:
+                        prev_spikes = queued_spikes[key][:, layer.delays, :].transpose(1, 2)
 
                 mems[key], spikes[key] = layer(prev_spikes, mems[key], spikes[key]) 
                 prev_spikes = spikes[key]
@@ -1040,7 +1018,8 @@ class SNN(Training, nn.Module):
             self.spike_count -= prev_spikes.sum().item()
 
             # store results
-            self.update_logger(input[:, step, :].view(self.batch_size, -1), mems, spikes, step)
+            #self.update_logger(input[:, step, :].view(self.batch_size, -1), mems, spikes, step)
+            self.update_logger(input[:, step, ...], mems, spikes, step)
 
             # append results to activation list
             all_o_mems.append(mems[key])

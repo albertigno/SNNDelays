@@ -128,7 +128,9 @@ while capture.isRunning():
         # If so, pass the events into the slicer to handle them
         slicer.accept(events)
 
-
+    # key = cv.waitKey(1)
+    # if key == ord('q'):
+    #     break
 
 label = 0 # circle
 # label = 1 # cross

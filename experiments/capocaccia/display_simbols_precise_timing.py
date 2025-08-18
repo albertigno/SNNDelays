@@ -23,11 +23,12 @@ fonts = [
 total_symbols = 50
 frame_count = 0
 
+size = 300
 cv2.namedWindow("Symbols", cv2.WINDOW_NORMAL)
 cv2.moveWindow("Symbols", 900, 550) # screen 1
-cv2.resizeWindow("Symbols", 600, 600)
+cv2.resizeWindow("Symbols", size, size)
 
-blank_img = np.zeros((600, 600, 3), dtype=np.uint8)
+blank_img = np.zeros((size, size, 3), dtype=np.uint8)
 
 start_time = time.perf_counter()  # More precise timing
 
@@ -60,7 +61,7 @@ while total_symbols > 0:
             offset_y = random.randint(-50, 50)
 
             # for font in fonts:
-            img = np.zeros((600, 600, 3), dtype=np.uint8)
+            img = np.zeros((size, size, 3), dtype=np.uint8)
 
             # Get text size and position (with offset)
             text_size = cv2.getTextSize(symbol, font, font_scale, thickness)[0]

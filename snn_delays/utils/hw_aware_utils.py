@@ -33,8 +33,8 @@ def modify_weights(layer, value, mode='mask', trainable=True):
 
     if layer.data.shape == value.shape:
         new_weight = value if mode=='replace' else layer.data * value
-        layer = torch.nn.Parameter(
-            new_weight, requires_grad=trainable)
+        layer.data = new_weight
+        layer.requires_grad_(trainable)
     else:
         print(f'Mask weights failed: dimension mismatch. make sure the '
               f'weights are shape {layer.data.shape}')
@@ -128,7 +128,7 @@ def quantize_weights(snn, bits, last_layer=False, symmetry=True, print_info=Fals
 
     # Get the name of all the layers
     #layer_names = copy.deepcopy( snn.__dict__['base_params_names'] )   
-    weight_param_names = [name for name, param in snn.named_parameters() if 'linear' in name]
+    weight_param_names = [name for name, param in snn.named_parameters() if 'linear' in name or 'conv' in name]
     layer_names = copy.deepcopy( weight_param_names ) # otherwise "if not last_layer:" below will modify the orig list
 
     # Don't apply quantization in the last layer if last_layer=False
@@ -434,10 +434,24 @@ def get_w_from_proj_name(snn, layer_name):
 
     layer_num = int(layer_name.split('.')[1])
 
-    num_in = snn.layers[layer_num].num_in
-    num_out = snn.layers[layer_num].num_out
+    if 'linear' in layer_name:
 
-    w = getattr_dotted(snn, layer_name).data.reshape(num_out, num_in, 1)
+        num_in = snn.layers[layer_num].num_in
+        num_out = snn.layers[layer_num].num_out
+        num_d = 1
+        #max_delay = None
+        #stride = None
+
+        # if layer has delays
+        # if snn.layers[layer_num].pre_delays:
+        #     num_d = len(snn.layers[layer_num].delays)
+        #     max_delay = snn.layers[layer_num].max_d
+        #     stride = int(max_delay/num_d)
+
+        w = getattr_dotted(snn, layer_name).data.reshape(num_out, num_in, num_d)
+
+    elif 'conv' in layer_name:
+        w = getattr_dotted(snn, layer_name).data
 
     return w
 
@@ -450,7 +464,8 @@ def get_weights_and_delays(snn, layer, prun_type = 'synaptic'):
     being k the number of delays per synapse
     '''
 
-    w = get_w_from_proj_name(snn, layer).cpu()
+    w, max_delay, stride = get_w_from_proj_name(snn, layer)
+    w = w.cpu()
     num_pos = w.shape[0]
     num_pre = w.shape[1]
 
@@ -475,13 +490,16 @@ def get_weights_and_delays(snn, layer, prun_type = 'synaptic'):
             delays[i, j, m] = d
 
         #  the obtained delays need to be reconverted according to the max_delay and stride
-        delays = snn.max_d - snn.stride*delays
+        delays = max_delay - stride*delays
 
     else:
         print('no delays in this network. setting all delays to zero.')
         weights = w
 
     return weights, delays
+
+
+
 
 
 def save_weights_delays(snn, path = 'default', format='split', prun_type = 'synaptic'):
@@ -518,18 +536,20 @@ def save_weights_delays(snn, path = 'default', format='split', prun_type = 'syna
 
         #layers = snn.proj_names
 
-        layers = [name for name, param in snn.named_parameters() if 'linear' in name]
+        layers = [name for name, param in snn.named_parameters() if 'linear' in name or 'conv' in name]
 
-        # if 'i' in snn.delay_type:
-        #     layers = ['f0_f1'] + layers    
-        # else:
-        #      np.save(os.path.join(layers_path, f'f0_f1_weights'), snn.f0_f1.weight.data.cpu().numpy())
 
-        #layers = ['f0_f1'] + layers
+        ### TBD later
+        # for layer in layers:
+        #     weights, delays = get_weights_and_delays(snn, layer, prun_type=prun_type)
+        #     np.save(os.path.join(layers_path, f'{layer}_weights'), weights)
+        #     np.save(os.path.join(layers_path, f'{layer}_delays'), delays)          
+
+        # Save only the weights of the layers
         for layer in layers:
-            weights, delays = get_weights_and_delays(snn, layer, prun_type=prun_type)
+            weights = get_w_from_proj_name(snn, layer).cpu().numpy()
             np.save(os.path.join(layers_path, f'{layer}_weights'), weights)
-            np.save(os.path.join(layers_path, f'{layer}_delays'), delays)          
+            
 
     print('Weights and delays saved in ', layers_path)
 

@@ -56,6 +56,7 @@ class TonicDataset:
             'ibm_gestures': {'n_classes': 11,
                     'sensor_size': datasets.DVSGesture.sensor_size},
             'davis':  {'sensor_size': (240, 180, 2)},
+            'davis_loihi':  {'sensor_size': (sensor_size_to, sensor_size_to, 2)},
             'smnist': {'n_classes': 10,
                     'sensor_size': (99, 1, 1)},
             'stmnist': {'n_classes': 10,
@@ -63,6 +64,7 @@ class TonicDataset:
             'lipsfus': {'n_classes': 10,
                     'sensor_size': (256, 1, 1)}
         }
+
         #self.n_classes = parameter_dataset[self.dataset_name]['n_classes']
         #self.duration_ms = parameter_dataset[self.dataset_name]['duration_ms']
 
@@ -83,6 +85,7 @@ class TonicDataset:
             list_sample_transform.append(
                 transforms.CenterCrop(sensor_size=original_sensor_size, size=(128, 128)))
             original_sensor_size = (128, 128, 2)
+
 
         # Sensor size and down-sampling factor
         sensor_size_list = list(original_sensor_size)
@@ -168,6 +171,7 @@ class TonicDataset:
 
         # Create the dictionary
         train_attrs = {'num_input': num_input,
+                       'num_input_channels': self.sensor_size[-1],
                        'num_training_samples': len(self.train_dataset),
                        'num_output': self.n_classes}
 

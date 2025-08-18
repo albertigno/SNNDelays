@@ -940,3 +940,162 @@ def plot_losses(nested_loss_lists, label='Mean loss', color='blue', linestyle='-
     plt.legend()
     plt.grid(True)
     return plt.gca()
+
+
+# --- Function to plot convolutional filters ---
+def plot_conv_filters(layer, num_filters_to_plot=None, img_scale_factor=5):
+    """
+    Plots the filters of a specified Conv2DSNNLayer in the model.
+
+    Args:
+        model (nn.Module): Your SNN model instance.
+        layer_name (str): The name of the Conv2DSNNLayer attribute in your model (e.g., 'conv1', 'conv2').
+        num_filters_to_plot (int, optional): Maximum number of filters to plot.
+                                            If None, plots all filters.
+        img_scale_factor (int): Multiplier for image size for better visualization.
+    """
+
+    filters = layer.conv.weight.data.cpu().numpy()
+
+    out_channels, in_channels, kernel_h, kernel_w = filters.shape
+
+    # Determine how many filters to plot
+    if num_filters_to_plot is None:
+        num_filters_to_plot = out_channels
+    else:
+        num_filters_to_plot = min(num_filters_to_plot, out_channels)
+
+    # Calculate grid dimensions for plotting
+    # Aim for a roughly square layout
+    grid_cols = int(np.ceil(np.sqrt(num_filters_to_plot)))
+    grid_rows = int(np.ceil(num_filters_to_plot / grid_cols))
+
+    fig, axes = plt.subplots(grid_rows, grid_cols, 
+                             figsize=(grid_cols * img_scale_factor, grid_rows * img_scale_factor), 
+                             squeeze=False) # squeeze=False ensures axes is always 2D
+    axes = axes.flatten() # Flatten to iterate easily
+
+    # Plot each filter
+    for i in range(num_filters_to_plot):
+        ax = axes[i]
+        
+        # Sum across input channels and normalize for visualization
+        filter_img = filters[i, :, :, :].sum(axis=0) # Sum across in_channels
+        
+        # Normalize to [0, 1] for display purposes (or [-1, 1] if bipolar)
+        # Using min-max normalization for visualization
+        filter_max = np.abs(filter_img).max()
+        filter_img = filter_img / filter_max
+
+        im = ax.imshow(filter_img, cmap='RdBu', vmin=-1, vmax=1)
+        ax.set_title(f'Filter {i+1}')
+        ax.axis('off')
+
+    # Hide any unused subplots
+    for j in range(num_filters_to_plot, len(axes)):
+        fig.delaxes(axes[j])
+
+    plt.suptitle(f'Filters', fontsize=img_scale_factor*3)
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95]) # Adjust layout to prevent title overlap
+    plt.colorbar(im, ax=axes.tolist(), shrink=0.7) # Add a common colorbar
+    plt.show()
+
+
+def plot_3d_conv_filter_stack(filter_data, title="3D Filter Stack"):
+    """
+    Conceptual function to visualize a single 3D filter as a stack of 2D planes.
+    This is more for conceptual understanding and less practical for detailed analysis.
+    
+    Args:
+        filter_data (numpy.ndarray): A single 3D filter, shape (in_channels, D_k, H_k, W_k)
+                                     or (D_k, H_k, W_k) if already aggregated over in_channels.
+        title (str): Plot title.
+    """
+    if filter_data.ndim == 4: # (in_channels, D_k, H_k, W_k)
+        filter_data = filter_data.sum(axis=0) # Aggregate over in_channels
+    
+    temporal_kernel_size, H_k, W_k = filter_data.shape
+
+    print(f"Filter shape: {filter_data.shape}")
+
+    fig = plt.figure(figsize=(10, 10))
+    ax = fig.add_subplot(111, projection='3d')
+
+    # Normalize data for coloring
+    norm_filter = (filter_data - filter_data.min()) / (filter_data.max() - filter_data.min() + 1e-8)
+
+    #filter_max = np.abs(filter_data).max()
+    #norm_filter = filter_data / filter_max
+
+    separation = 5
+
+    for d in range(temporal_kernel_size):
+        # Create a plane for each slice
+        X, Y = np.meshgrid(np.arange(W_k+1), np.arange(H_k+1))
+        Z = np.ones_like(X) * d * separation # Position slice along Z-axis
+
+        # Use normalized filter values for coloring
+        #colors = plt.cm.viridis(norm_filter[d, :, :])
+        colors = plt.cm.RdBu(norm_filter[d, :, :])
+
+        ax.plot_surface(X, Y, Z, rstride=1, cstride=1, facecolors=colors, shade=False)
+
+    ax.set_xlabel('Width')
+    ax.set_ylabel('Height')
+    ax.set_zlabel('Time/Depth Slice')
+    ax.set_title(title)
+    plt.show()
+
+
+def plot_3d_conv_filter_stack_as_points(filter_data, title="3D Filter (Points)", point_size=50, cmap='RdBu'):
+    """
+    Visualizes a single 3D filter as a scatter plot of individual weights in 3D space.
+
+    Args:
+        filter_data (numpy.ndarray): A single 3D filter, shape (in_channels, D_k, H_k, W_k)
+                                     or (D_k, H_k, W_k) if already aggregated over in_channels.
+        title (str): Plot title.
+        point_size (int): Size of the scatter points.
+        cmap (str): Colormap to use for representing weight magnitudes.
+    """
+    if filter_data.ndim == 4: # (in_channels, D_k, H_k, W_k)
+        filter_data = filter_data.sum(axis=0) # Aggregate over in_channels
+    
+    temporal_kernel_size, H_k, W_k = filter_data.shape
+
+    # Prepare coordinates for each weight
+    # X corresponds to W_k (width), Y to H_k (height), Z to D_k (temporal depth)
+    Z_coords, Y_coords, X_coords = np.indices(filter_data.shape)
+
+    # Flatten the arrays for scatter plot
+    X_flat = X_coords.flatten()
+    Y_flat = Y_coords.flatten()
+    Z_flat = Z_coords.flatten()
+    values_flat = filter_data.flatten()
+
+    # Normalize values for coloring
+    norm = plt.Normalize(vmin=values_flat.min(), vmax=values_flat.max())
+    colors = plt.cm.get_cmap(cmap)(norm(values_flat))
+
+    fig = plt.figure(figsize=(10, 10))
+    ax = fig.add_subplot(111, projection='3d')
+
+    # Scatter plot individual weights
+    scatter = ax.scatter(X_flat, Y_flat, Z_flat, 
+                         c=colors, s=point_size, marker='o', depthshade=True)
+
+    ax.set_xlabel('Width (W)')
+    ax.set_ylabel('Height (H)')
+    ax.set_zlabel('Time (D)')
+    ax.set_title(title)
+
+    # Add a colorbar
+    m = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+    m.set_array(values_flat)
+    fig.colorbar(m, ax=ax, shrink=0.7, aspect=20, label='Weight Value')
+
+    # Optional: Set equal aspect ratio for true 3D perception
+    # This can sometimes make the plot look smaller but correctly spaced
+    # ax.set_box_aspect([np.ptp(X_flat), np.ptp(Y_flat), np.ptp(Z_flat)])
+
+    plt.show()
