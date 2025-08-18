@@ -12,7 +12,7 @@ import numpy as np
 import time
 from IPython.display import clear_output
 import matplotlib.pyplot as plt
-import streamlit as st
+#import streamlit as st
 
 def get_device():
     '''

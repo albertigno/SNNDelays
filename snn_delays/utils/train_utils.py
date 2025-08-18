@@ -11,7 +11,7 @@ import numpy as np
 import time
 from IPython.display import clear_output
 import matplotlib.pyplot as plt
-import streamlit as st
+#import streamlit as st
 
 def get_device():
     '''
@@ -75,13 +75,13 @@ def train(snn, train_loader, test_loader, learning_rate, num_epochs, spk_reg=0.0
             random_proj_mask.append(torch.rand(getattr(snn, proj).weight.shape)>((50-random_delay_pruning)/50))
 
     
-    if streamlit:
-        # Streamlit app
-        st.title("Live Training Loss Visualization")
-        st.write("This app visualizes the training loss of a simple PyTorch model in real-time.")
+    # if streamlit:
+    #     # Streamlit app
+    #     st.title("Live Training Loss Visualization")
+    #     st.write("This app visualizes the training loss of a simple PyTorch model in real-time.")
 
-        # Create a placeholder for the live plot
-        plot_placeholder = st.empty()
+    #     # Create a placeholder for the live plot
+    #     plot_placeholder = st.empty()
 
     for epoch in range(num_epochs):
         
